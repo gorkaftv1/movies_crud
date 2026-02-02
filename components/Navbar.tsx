@@ -133,23 +133,25 @@ export default function Navbar() {
 
   if (loading) {
     return (
-      <nav className="bg-gray-800 text-white p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link href="/" className="text-xl font-bold">Movies CRUD</Link>
-          <div>Cargando...</div>
-        </div>
-      </nav>
-    );
-  }
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="container mx-auto flex justify-between items-center px-6 py-4">
+          <Link href="/" className="text-2xl font-bold text-primary">Movies CRUD</Link>
+<div className="text-gray-600">Cargando...</div>
+      </div>
+    </nav>
+  );
+}
 
   return (
-    <nav className="bg-gray-800 text-white p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-xl font-bold">Movies CRUD</Link>
+    <nav className="bg-white shadow-sm border-b border-gray-200">
+      <div className="container mx-auto flex justify-between items-center px-6 py-4">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="text-2xl font-bold hover:opacity-80 transition-opacity" style={{color: 'rgb(198 40 40)'}}>
+            Movies CRUD
+          </Link>
           <Link 
             href="/movies"
-            className="text-gray-300 hover:text-white transition-colors"
+            className="text-gray-600 hover:text-gray-900 transition-colors font-medium"
           >
             Películas
           </Link>
@@ -160,37 +162,41 @@ export default function Navbar() {
             <>
               <Link 
                 href="/movies"
-                className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                className="rounded-lg px-4 py-2 text-sm font-medium transition-colors border border-gray-300 hover:bg-gray-100"
+                style={{color: 'rgb(198 40 40)', borderColor: 'rgb(198 40 40)'}}
               >
                 Ver Películas
               </Link>
               <Link 
                 href="/add-movie"
-                className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
+                style={{backgroundColor: 'rgb(198 40 40)'}}
               >
                 Añadir Película
               </Link>
-              <span className="text-gray-300">
+              <span className="text-gray-600 text-sm">
                 Hola, {profile?.username || user.email}
               </span>
               <button
                 onClick={handleLogout}
-                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                className="rounded-lg px-4 py-2 text-sm font-medium transition-colors bg-gray-100 border border-gray-300 text-gray-900 hover:bg-gray-200"
               >
                 Cerrar sesión
               </button>
             </>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Link 
                 href="/login"
-                className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                className="rounded-lg px-4 py-2 text-sm font-medium transition-colors border hover:bg-gray-50"
+                style={{color: 'rgb(198 40 40)', borderColor: 'rgb(198 40 40)'}}
               >
                 Iniciar sesión
               </Link>
               <Link 
                 href="/register"
-                className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
+                style={{backgroundColor: 'rgb(198 40 40)'}}
               >
                 Registrarse
               </Link>

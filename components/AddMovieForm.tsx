@@ -125,11 +125,18 @@ export default function AddMovieForm() {
         throw new Error("El título es obligatorio");
       }
 
+      if (!user) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      console.log('🎬 Creating movie for user:', user.email);
+
       // Preparar los datos para la base de datos
       const movieData: any = {
         title: formData.title.trim(),
         short_desc: formData.short_desc.trim() || null,
         director: formData.director.trim() || null,
+        user_id: user.id, // Añadir el ID del usuario
       };
 
       // Convertir campos numéricos si están presentes
@@ -243,17 +250,17 @@ export default function AddMovieForm() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold text-center mb-6">Añadir Nueva Película</h2>
+    <div className="max-w-2xl mx-auto mt-8 p-6 rounded-lg shadow-lg" style={{backgroundColor: 'white'}}>
+      <h2 className="text-2xl font-bold text-center mb-6" style={{color: 'rgb(198, 40, 40)'}}>Añadir Nueva Película</h2>
       
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+        <div className="mb-4 p-4 rounded border" style={{backgroundColor: 'rgba(198, 40, 40, 0.1)', borderColor: 'rgba(198, 40, 40, 0.2)', color: 'rgb(183, 28, 28)'}}>
           {error}
         </div>
       )}
       
       {success && (
-        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+        <div className="mb-4 p-4 rounded border" style={{backgroundColor: 'rgba(46, 125, 50, 0.1)', borderColor: 'rgba(46, 125, 50, 0.2)', color: 'rgb(46, 125, 50)'}}>
           ¡Película añadida exitosamente!
         </div>
       )}
@@ -270,7 +277,8 @@ export default function AddMovieForm() {
             value={formData.title}
             onChange={handleInputChange}
             required
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:border-red-500 transition-colors" 
+            style={{'--tw-ring-color': 'rgba(198, 40, 40, 0.1)'}} 
           />
         </div>
 
@@ -287,7 +295,8 @@ export default function AddMovieForm() {
               onChange={handleInputChange}
               min="1900"
               max="2030"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:border-red-500 transition-colors" 
+              style={{'--tw-ring-color': 'rgba(198, 40, 40, 0.1)'}} 
             />
           </div>
 
@@ -302,7 +311,8 @@ export default function AddMovieForm() {
               value={formData.duration}
               onChange={handleInputChange}
               min="1"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:border-red-500 transition-colors" 
+              style={{'--tw-ring-color': 'rgba(198, 40, 40, 0.1)'}} 
             />
           </div>
 
@@ -319,7 +329,8 @@ export default function AddMovieForm() {
               min="0"
               max="10"
               step="0.1"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:border-red-500 transition-colors" 
+              style={{'--tw-ring-color': 'rgba(198, 40, 40, 0.1)'}} 
             />
           </div>
         </div>
@@ -334,7 +345,8 @@ export default function AddMovieForm() {
             name="director"
             value={formData.director}
             onChange={handleInputChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:border-red-500 transition-colors" 
+            style={{'--tw-ring-color': 'rgba(198, 40, 40, 0.1)'}} 
           />
         </div>
 
@@ -349,7 +361,8 @@ export default function AddMovieForm() {
             value={formData.cast}
             onChange={handleInputChange}
             placeholder="Actor 1, Actor 2, Actor 3..."
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:border-red-500 transition-colors" 
+            style={{'--tw-ring-color': 'rgba(198, 40, 40, 0.1)'}} 
           />
         </div>
 
@@ -363,7 +376,8 @@ export default function AddMovieForm() {
             value={formData.short_desc}
             onChange={handleInputChange}
             rows={3}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:border-red-500 transition-colors" 
+            style={{'--tw-ring-color': 'rgba(198, 40, 40, 0.1)'}} 
           />
         </div>
 
@@ -377,7 +391,8 @@ export default function AddMovieForm() {
             name="portrait"
             accept="image/*"
             onChange={handleFileChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:border-red-500 transition-colors" 
+            style={{'--tw-ring-color': 'rgba(198, 40, 40, 0.1)'}} 
           />
           <p className="text-sm text-gray-500 mt-1">
             Formatos permitidos: JPG, PNG, GIF. Tamaño máximo recomendado: 5MB
@@ -391,7 +406,8 @@ export default function AddMovieForm() {
                 <img
                   src={imagePreview}
                   alt="Vista previa de la carátula"
-                  className="max-w-48 max-h-64 object-cover rounded-lg border border-gray-300 shadow-sm"
+                  className="max-w-48 max-h-64 object-cover rounded-lg border shadow-sm"
+                  style={{borderColor: 'rgba(198, 40, 40, 0.2)'}}
                 />
               </div>
             </div>
@@ -401,7 +417,8 @@ export default function AddMovieForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded-lg px-4 py-2 text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-700"
+          style={{backgroundColor: 'rgb(198, 40, 40)'}}
         >
           {loading ? "Añadiendo película..." : "Añadir Película"}
         </button>

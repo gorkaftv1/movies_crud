@@ -1,28 +1,47 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Rojo principal (brand) */
+  --red-500: 211 47 47;
+  --red-600: 198 40 40;
+  --red-700: 183 28 28;
+
+  /* Neutros */
+  --gray-50: 250 250 250;
+  --gray-100: 245 245 245;
+  --gray-300: 224 224 224;
+  --gray-500: 158 158 158;
+  --gray-600: 97 97 97;
+  --gray-900: 31 31 31;
+
+  /* Estados y feedback */
+  --success: 46 125 50;
+  --warning: 237 108 2;
+  --info: 2 119 189;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  --color-primary: rgb(var(--red-600));
+  --color-primary-hover: rgb(var(--red-700));
+  --color-primary-light: rgb(var(--red-500));
+  
+  --color-text: rgb(var(--gray-900));
+  --color-text-muted: rgb(var(--gray-600));
+  
+  --color-border: rgb(var(--gray-300));
+  --color-surface: rgb(var(--gray-100));
+  --color-background: rgb(var(--gray-50));
+  
+  --color-success: rgb(var(--success));
+  --color-warning: rgb(var(--warning));
+  --color-info: rgb(var(--info));
+  --color-error: rgb(var(--red-600));
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: rgb(var(--gray-50));
+  color: rgb(var(--gray-900));
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Utilidades para truncar texto */
