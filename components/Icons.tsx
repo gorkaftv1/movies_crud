@@ -228,6 +228,95 @@ export const PlusIcon: React.FC<IconProps> = ({
   </svg>
 );
 
+// Icono de candado cerrado (privado)
+export const LockIcon: React.FC<IconProps> = ({ 
+  className = '', 
+  size = 24, 
+  color = 'currentColor' 
+}) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke={color} 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+  </svg>
+);
+
+// Icono de candado abierto (público)
+export const UnlockIcon: React.FC<IconProps> = ({ 
+  className = '', 
+  size = 24, 
+  color = 'currentColor' 
+}) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke={color} 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+    <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+  </svg>
+);
+
+// Icono de editar (lápiz)
+export const EditIcon: React.FC<IconProps> = ({ 
+  className = '', 
+  size = 24, 
+  color = 'currentColor' 
+}) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke={color} 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+  </svg>
+);
+
+// Icono de eliminar (papelera)
+export const TrashIcon: React.FC<IconProps> = ({ 
+  className = '', 
+  size = 24, 
+  color = 'currentColor' 
+}) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke={color} 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    <line x1="10" y1="11" x2="10" y2="17"/>
+    <line x1="14" y1="11" x2="14" y2="17"/>
+  </svg>
+);
+
 export default {
   MovieIcon,
   PlaylistIcon,
@@ -238,5 +327,9 @@ export default {
   UserIcon,
   ImageIcon,
   SpinnerIcon,
-  PlusIcon
+  PlusIcon,
+  LockIcon,
+  UnlockIcon,
+  EditIcon,
+  TrashIcon
 };

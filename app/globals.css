@@ -1,3 +1,7 @@
+/* Clase global para ring color rojo en inputs */
+.input-ring-red:focus {
+  --tw-ring-color: rgb(var(--red-600));
+}
 @import "tailwindcss";
 
 :root {

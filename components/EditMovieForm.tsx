@@ -2,24 +2,37 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { createMovie } from "@/lib/movies";
-import { uploadMoviePortrait } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
-import type { AddMovieFormData } from "@/lib/types";
+import { uploadMoviePortrait } from "@/lib/utils";
+import type { Movie } from "@/lib/types";
 
-interface AddMovieFormDataExtended extends AddMovieFormData {
+interface EditMovieFormProps {
+  movieId: string;
+}
+
+interface MovieFormData {
+  title: string;
+  year: string;
+  director: string;
+  duration: string;
+  score: string;
+  short_desc: string;
+  cast: string;
+  genres: string;
   portrait_file: File | null;
 }
 
-export default function AddMovieForm() {
+export default function EditMovieForm({ movieId }: EditMovieFormProps) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [fetchingMovie, setFetchingMovie] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [originalMovie, setOriginalMovie] = useState<Movie | null>(null);
   
-  const [formData, setFormData] = useState<AddMovieFormDataExtended>({
+  const [formData, setFormData] = useState<MovieFormData>({
     title: "",
     year: "",
     director: "",
@@ -31,12 +44,72 @@ export default function AddMovieForm() {
     portrait_file: null,
   });
 
-  // Verificar autenticación al montar el componente
+  // Verificar autenticación
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
     }
   }, [user, authLoading, router]);
+
+  // Cargar datos de la película
+  useEffect(() => {
+    const fetchMovie = async () => {
+      if (!movieId) return;
+
+      try {
+        setFetchingMovie(true);
+        
+        const { data: movie, error: fetchError } = await supabase
+          .from('movies')
+          .select('*')
+          .eq('id', movieId)
+          .single();
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        if (!movie) {
+          throw new Error('Película no encontrada');
+        }
+
+        // Verificar que el usuario sea el dueño de la película
+        if (user && movie.user_id !== user.id) {
+          throw new Error('No tienes permiso para editar esta película');
+        }
+
+        setOriginalMovie(movie);
+        
+        // Cargar datos en el formulario
+        setFormData({
+          title: movie.title || "",
+          year: movie.year ? String(movie.year) : "",
+          director: movie.director || "",
+          duration: movie.duration ? String(movie.duration) : "",
+          score: movie.score ? String(movie.score) : "",
+          short_desc: movie.short_desc || "",
+          cast: movie.cast ? movie.cast.join(', ') : "",
+          genres: movie.genres ? movie.genres.join(', ') : "",
+          portrait_file: null,
+        });
+
+        // Cargar preview de la imagen si existe
+        if (movie.portrait_url) {
+          setImagePreview(movie.portrait_url);
+        }
+
+      } catch (err: any) {
+        console.error('Error fetching movie:', err);
+        setError(err.message || 'Error al cargar la película');
+      } finally {
+        setFetchingMovie(false);
+      }
+    };
+
+    if (!authLoading && user) {
+      fetchMovie();
+    }
+  }, [movieId, user, authLoading]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -60,8 +133,6 @@ export default function AddMovieForm() {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
-    } else {
-      setImagePreview(null);
     }
   };
 
@@ -92,14 +163,14 @@ export default function AddMovieForm() {
         throw new Error("Usuario no autenticado");
       }
 
-      console.log('🎬 Creating movie for user:', user.email);
+      console.log('✏️ Updating movie:', movieId);
 
-      // Preparar los datos para la base de datos
+      // Preparar los datos para la actualización
       const movieData: any = {
         title: formData.title.trim(),
         short_desc: formData.short_desc.trim() || null,
         director: formData.director.trim() || null,
-        user_id: user.id, // Añadir el ID del usuario
+        updated_at: new Date().toISOString(),
       };
 
       // Convertir campos numéricos si están presentes
@@ -109,6 +180,8 @@ export default function AddMovieForm() {
           throw new Error("El año debe ser un número válido entre 1900 y 2030");
         }
         movieData.year = year;
+      } else {
+        movieData.year = null;
       }
 
       if (formData.duration) {
@@ -117,6 +190,8 @@ export default function AddMovieForm() {
           throw new Error("La duración debe ser un número positivo (en minutos)");
         }
         movieData.duration = duration;
+      } else {
+        movieData.duration = null;
       }
 
       if (formData.score) {
@@ -125,6 +200,8 @@ export default function AddMovieForm() {
           throw new Error("La puntuación debe ser un número entre 0 y 10");
         }
         movieData.score = score;
+      } else {
+        movieData.score = null;
       }
 
       // Procesar el reparto (cast) como array
@@ -133,6 +210,8 @@ export default function AddMovieForm() {
           .split(',')
           .map(actor => actor.trim())
           .filter(actor => actor.length > 0);
+      } else {
+        movieData.cast = [];
       }
 
       // Procesar los géneros como array
@@ -141,21 +220,31 @@ export default function AddMovieForm() {
           .split(',')
           .map(genre => genre.trim())
           .filter(genre => genre.length > 0);
+      } else {
+        movieData.genres = [];
       }
 
-      // Insertar la película en la base de datos
-      const movie = await createMovie(movieData);
+      // Actualizar la película en la base de datos
+      // RLS se encarga de verificar que solo el dueño pueda actualizar
+      const { error: updateError } = await supabase
+        .from('movies')
+        .update(movieData)
+        .eq('id', movieId);
 
-      // Subir la carátula si se proporcionó
-      if (formData.portrait_file && movie) {
-        const portraitUrl = await uploadPortrait(formData.portrait_file, movie.id);
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Subir la carátula si se proporcionó una nueva
+      if (formData.portrait_file) {
+        const portraitUrl = await uploadPortrait(formData.portrait_file, movieId);
         
         if (portraitUrl) {
           // Actualizar la película con la URL de la carátula
           const { error: updateError } = await supabase
             .from('movies')
             .update({ portrait_url: portraitUrl })
-            .eq('id', movie.id);
+            .eq('id', movieId);
 
           if (updateError) {
             console.error('Error updating portrait URL:', updateError);
@@ -165,45 +254,24 @@ export default function AddMovieForm() {
 
       setSuccess(true);
       
-      // Limpiar el formulario
-      setFormData({
-        title: "",
-        year: "",
-        director: "",
-        duration: "",
-        score: "",
-        short_desc: "",
-        cast: "",
-        genres: "",
-        portrait_file: null,
-      });
-
-      // Reset file input
-      const fileInput = document.getElementById('portrait') as HTMLInputElement;
-      if (fileInput) {
-        fileInput.value = '';
-      }
-      setImagePreview(null);
-
-      // Opcional: redirigir después de unos segundos
+      // Redirigir a la página de detalles después de 2 segundos
       setTimeout(() => {
-        setSuccess(false);
-      }, 3000);
+        router.push(`/movies/${movieId}`);
+      }, 2000);
 
     } catch (error: any) {
       setError(error.message);
     } finally {
       setLoading(false);
     }
-    router.push('/movies');
   };
 
-  // Mostrar loading mientras se verifica la autenticación
-  if (authLoading) {
+  // Mostrar loading mientras se verifica la autenticación o se carga la película
+  if (authLoading || fetchingMovie) {
     return (
-      <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
+      <div className="max-w-6xl mx-auto mt-8 p-8 bg-white rounded-lg shadow-lg">
         <div className="flex justify-center items-center py-12">
-          <div className="text-gray-600">Verificando autenticación...</div>
+          <div className="text-gray-600">Cargando película...</div>
         </div>
       </div>
     );
@@ -214,9 +282,26 @@ export default function AddMovieForm() {
     return null;
   }
 
+  // Si hay error cargando la película
+  if (error && !originalMovie) {
+    return (
+      <div className="max-w-6xl mx-auto mt-8 p-8 bg-white rounded-lg shadow-lg">
+        <div className="text-center py-12">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => router.back()}
+            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+          >
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto mt-8 p-8 rounded-lg shadow-lg bg-white">
-      <h2 className="text-3xl font-bold text-center mb-8" style={{color: 'rgb(198, 40, 40)'}}>Añadir Nueva Película</h2>
+      <h2 className="text-3xl font-bold text-center mb-8" style={{color: 'rgb(198, 40, 40)'}}>Editar Película</h2>
       
       {error && (
         <div className="mb-6 p-4 rounded border" style={{backgroundColor: 'rgba(198, 40, 40, 0.1)', borderColor: 'rgba(198, 40, 40, 0.2)', color: 'rgb(183, 28, 28)'}}>
@@ -226,7 +311,7 @@ export default function AddMovieForm() {
       
       {success && (
         <div className="mb-6 p-4 rounded border" style={{backgroundColor: 'rgba(46, 125, 50, 0.1)', borderColor: 'rgba(46, 125, 50, 0.2)', color: 'rgb(46, 125, 50)'}}>
-          ¡Película añadida exitosamente!
+          ¡Película actualizada exitosamente! Redirigiendo...
         </div>
       )}
 
@@ -443,12 +528,12 @@ export default function AddMovieForm() {
                 className="flex-1 py-3 rounded-lg text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg"
                 style={{backgroundColor: 'rgb(198, 40, 40)'}}
               >
-                {loading ? 'Guardando...' : 'Añadir película'}
+                {loading ? 'Guardando...' : 'Guardar cambios'}
               </button>
               
               <button
                 type="button"
-                onClick={() => window.history.back()}
+                onClick={() => router.back()}
                 disabled={loading}
                 className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
