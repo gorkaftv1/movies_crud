@@ -23,7 +23,7 @@ export default function AddMovieForm() {
     year: "",
     director: "",
     duration: "",
-    score: "",
+    score: "5.0",
     short_desc: "",
     cast: "",
     genres: "",

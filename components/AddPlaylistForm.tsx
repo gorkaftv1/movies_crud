@@ -6,7 +6,7 @@ import { createPlaylist } from "@/lib/playlists";
 import type { AddPlaylistFormData } from "@/lib/types";
 import PlaylistForm from "@/components/PlaylistForm";
 
-export default function AddPlaylistPage() {
+export default function AddPlaylistForm() {
   const router = useRouter();
   const { user, loading: authLoading, supabase } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -35,6 +35,7 @@ export default function AddPlaylistPage() {
       [name]: type === 'checkbox' ? checked : value
     }));
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,11 +95,9 @@ export default function AddPlaylistPage() {
   // Mostrar loading mientras se verifica la autenticación
   if (authLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
-          <div className="flex justify-center items-center py-12">
-            <div className="text-gray-600">Verificando autenticación...</div>
-          </div>
+      <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
+        <div className="flex justify-center items-center py-12">
+          <div className="text-gray-600">Verificando autenticación...</div>
         </div>
       </div>
     );
@@ -110,16 +109,14 @@ export default function AddPlaylistPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <PlaylistForm
-        formData={formData}
-        onChange={handleInputChange}
-        onSubmit={handleSubmit}
-        loading={loading}
-        error={error}
-        success={success}
-        submitLabel={loading ? 'Añadiendo playlist...' : 'Añadir Playlist'}
-      />
-    </div>
+    <PlaylistForm
+      formData={formData}
+      onChange={handleInputChange}
+      onSubmit={handleSubmit}
+      loading={loading}
+      error={error}
+      success={success}
+      submitLabel={loading ? 'Añadiendo playlist...' : 'Añadir Playlist'}
+    />
   );
 }

@@ -47,10 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Refs para mantener valores actualizados en callbacks
   const userRef = useRef<User | null>(null);
   const initializedRef = useRef<boolean>(false);
+  const profileRef = useRef<Profile | null>(null);
   
   // Mantener refs sincronizadas
   userRef.current = user;
   initializedRef.current = initialized;
+  profileRef.current = profile;
 
   // Función para cargar perfil
   const loadProfile = async (userId: string) => {
@@ -58,46 +60,129 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🔍 Loading profile for user:', userId);
       console.log('  - User ID type:', typeof userId);
       console.log('  - User ID length:', userId?.length);
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('username, avatar_url')
-        .eq('id', userId)
-        .single();
-      
-      console.log('📊 Profile query result:');
-      console.log('  - Data:', data);
-      console.log('  - Error:', error);
-      
-      if (error && error.code === 'PGRST116') {
-        // No existe perfil, crear uno básico
-        console.log('📝 Creating basic profile for user');
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert([{ id: userId }])
-          .select('username, avatar_url')
-          .single();
-          
-        if (createError) {
-          console.error('❌ Error creating profile:', createError);
-          console.error('  - Error details:', JSON.stringify(createError, null, 2));
-          setProfile(null);
-        } else {
-          console.log('✅ Profile created successfully:', newProfile);
-          setProfile(newProfile);
+      // Use maybeSingle to avoid treating "no rows" as an exception and
+      // make the not-found -> insert flow more deterministic.
+      // Try fetching the profile with retries and exponential backoff.
+      const maxAttempts = 3;
+      const baseTimeoutMs = 3000; // per-attempt timeout
+      const backoffBase = 500; // ms
+
+      const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+      let finalData: Profile | null = null;
+      let finalError: any = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          console.log(`⏱️ Attempt ${attempt}/${maxAttempts}: starting profile query (timeout ${baseTimeoutMs}ms)`);
+          const query = supabase
+            .from('profiles')
+            .select('username, avatar_url')
+            .eq('id', userId)
+            .maybeSingle();
+
+          const wrapped = Promise.race<any>([
+            query.then(res => ({ res, timedOut: false })),
+            new Promise(resolve => setTimeout(() => resolve({ timedOut: true }), baseTimeoutMs))
+          ]);
+
+          const result = await wrapped;
+
+          if (result?.timedOut) {
+            console.warn(`⏳ Attempt ${attempt} timed out after ${baseTimeoutMs}ms for user ${userId}`);
+            finalError = new Error('timeout');
+            if (attempt < maxAttempts) {
+              const backoff = backoffBase * Math.pow(2, attempt - 1);
+              console.log(`↻ Retrying after ${backoff}ms`);
+              await sleep(backoff);
+              continue;
+            }
+            // exhausted attempts
+            break;
+          }
+
+          const { data, error } = result.res;
+
+          if (userRef.current?.id !== userId) {
+            console.log('⏭️ Aborting profile set: user changed during fetch');
+            return;
+          }
+
+          if (error) {
+            console.error('❌ Profile load error:', error);
+            finalError = error;
+            if (attempt < maxAttempts) {
+              const backoff = backoffBase * Math.pow(2, attempt - 1);
+              console.log(`↻ Retrying after error, sleeping ${backoff}ms`);
+              await sleep(backoff);
+              continue;
+            }
+            break;
+          }
+
+          if (!data) {
+            // No existe perfil, crear uno básico
+            console.log('📝 No profile found — creating basic profile for user');
+            const { data: newProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert([{ id: userId }])
+              .select('username, avatar_url')
+              .single();
+
+            if (userRef.current?.id !== userId) {
+              console.log('⏭️ Aborting profile creation: user changed during operation');
+              return;
+            }
+
+            if (createError) {
+              console.error('❌ Error creating profile:', createError);
+              finalError = createError;
+              if (attempt < maxAttempts) {
+                const backoff = backoffBase * Math.pow(2, attempt - 1);
+                console.log(`↻ Retrying after create error, sleeping ${backoff}ms`);
+                await sleep(backoff);
+                continue;
+              }
+              break;
+            } else {
+              finalData = newProfile;
+              break;
+            }
+          } else {
+            finalData = data;
+            break;
+          }
+        } catch (err) {
+          console.error('💥 Unexpected error during profile fetch attempt:', err);
+          finalError = err;
+          if (attempt < maxAttempts) {
+            const backoff = backoffBase * Math.pow(2, attempt - 1);
+            console.log(`↻ Retrying after unexpected error, sleeping ${backoff}ms`);
+            await sleep(backoff);
+            continue;
+          }
+          break;
         }
-      } else if (error) {
-        console.error('❌ Profile load error:', error);
-        console.error('  - Error code:', error.code);
-        console.error('  - Error message:', error.message);
-        console.error('  - Error details:', JSON.stringify(error, null, 2));
-        setProfile(null);
-      } else {
-        console.log('👤 Profile loaded successfully:', data);
-        console.log('  - Username:', data?.username || '[NULL]');
-        console.log('  - Avatar URL:', data?.avatar_url || '[NULL]');
-        setProfile(data || null);
       }
+
+      if (finalData) {
+        console.log('👤 Profile loaded successfully:', finalData);
+        console.log('  - Username:', finalData?.username || '[NULL]');
+        console.log('  - Avatar URL:', finalData?.avatar_url || '[NULL]');
+        setProfile(finalData);
+        profileRef.current = finalData;
+        return;
+      }
+
+      // If we exhausted attempts and didn't get data, prefer to keep any existing profile
+      if (profileRef.current) {
+        console.warn('⚠️ Profile fetch failed after retries — keeping existing profile in state');
+        return;
+      }
+
+      console.error('❌ Profile fetch failed after retries:', finalError);
+      setProfile(null);
+      profileRef.current = null;
     } catch (error) {
       console.error('💥 Unexpected error loading profile:', error);
       console.error('  - Error type:', typeof error);
@@ -111,10 +196,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔄 Setting auth state for user:', newUser?.id);
     setUser(newUser);
     setSession(newSession);
-    
+
+    // Ensure UI knows we're loading profile data to avoid race conditions
+    // where components render before profile is available.
     if (newUser) {
-      await loadProfile(newUser.id);
-      console.log('✅ Auth state updated with profile');
+      setLoading(true);
+      try {
+        await loadProfile(newUser.id);
+        console.log('✅ Auth state updated with profile');
+      } finally {
+        setLoading(false);
+      }
     } else {
       setProfile(null);
       console.log('✅ Auth state cleared');
@@ -203,19 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('🔍 SIGNED_IN Event Details:');
           console.log('  - Current User ID:', userRef.current?.id);
           console.log('  - New Session User ID:', newSession?.user?.id);
-          console.log('  - Full User Object:', JSON.stringify(newSession?.user, null, 2));
-          console.log('  - Session Details:', {
-            access_token: newSession?.access_token ? '[EXISTS]' : '[MISSING]',
-            refresh_token: newSession?.refresh_token ? '[EXISTS]' : '[MISSING]',
-            expires_at: newSession?.expires_at,
-            expires_in: newSession?.expires_in
-          });
-          console.log('  - Current Auth State:', {
-            hasUser: !!userRef.current,
-            hasProfile: !!profile,
-            hasSession: !!session,
-            isInitialized: initializedRef.current
-          });
+
           
           if (newSession?.user) {
             if (newSession.user.id !== userRef.current?.id) {
