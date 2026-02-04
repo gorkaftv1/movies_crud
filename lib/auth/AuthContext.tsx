@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+import type { User, Session, SupabaseClient } from '@supabase/supabase-js';
 import type { Profile } from '@/lib/types';
 
 interface AuthContextType {
@@ -10,6 +10,7 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   loading: boolean;
+  supabase: SupabaseClient;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   session: null,
   loading: true,
+  supabase: {} as SupabaseClient,
 });
 
 export const useAuth = () => {
@@ -33,16 +35,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+  
+  // Crear cliente Supabase con soporte para cookies
+  const [supabase] = useState(() => 
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  );
+  
+  // Refs para mantener valores actualizados en callbacks
+  const userRef = useRef<User | null>(null);
+  const initializedRef = useRef<boolean>(false);
+  
+  // Mantener refs sincronizadas
+  userRef.current = user;
+  initializedRef.current = initialized;
 
   // Función para cargar perfil
   const loadProfile = async (userId: string) => {
     try {
       console.log('🔍 Loading profile for user:', userId);
+      console.log('  - User ID type:', typeof userId);
+      console.log('  - User ID length:', userId?.length);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('username, avatar_url')
         .eq('id', userId)
         .single();
+      
+      console.log('📊 Profile query result:');
+      console.log('  - Data:', data);
+      console.log('  - Error:', error);
       
       if (error && error.code === 'PGRST116') {
         // No existe perfil, crear uno básico
@@ -55,20 +80,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
         if (createError) {
           console.error('❌ Error creating profile:', createError);
+          console.error('  - Error details:', JSON.stringify(createError, null, 2));
           setProfile(null);
         } else {
-          console.log('✅ Profile created:', newProfile);
+          console.log('✅ Profile created successfully:', newProfile);
           setProfile(newProfile);
         }
       } else if (error) {
         console.error('❌ Profile load error:', error);
+        console.error('  - Error code:', error.code);
+        console.error('  - Error message:', error.message);
+        console.error('  - Error details:', JSON.stringify(error, null, 2));
         setProfile(null);
       } else {
-        console.log('👤 Profile loaded:', data);
+        console.log('👤 Profile loaded successfully:', data);
+        console.log('  - Username:', data?.username || '[NULL]');
+        console.log('  - Avatar URL:', data?.avatar_url || '[NULL]');
         setProfile(data || null);
       }
     } catch (error) {
-      console.error('❌ Error loading profile:', error);
+      console.error('💥 Unexpected error loading profile:', error);
+      console.error('  - Error type:', typeof error);
+      console.error('  - Error details:', JSON.stringify(error, null, 2));
       setProfile(null);
     }
   };
@@ -91,7 +124,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Inicializar sesión al montar
     const initializeAuth = async () => {
       try {
         console.log('🚀 Initializing auth...');
@@ -131,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const evt = e as CustomEvent;
         const userId = evt?.detail?.userId;
-        if (mounted && userId && user?.id === userId) {
+        if (mounted && userId && userRef.current?.id === userId) {
           console.log('🔄 Profile updated event received, reloading profile');
           await loadProfile(userId);
         }
@@ -149,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('🔐 Auth event:', event, 'initialized:', initialized, 'currentUser:', user?.id, 'newUser:', newSession?.user?.id);
+        console.log('🔐 Auth event:', event, 'initialized:', initializedRef.current, 'currentUser:', userRef.current?.id, 'newUser:', newSession?.user?.id);
         
         if (!mounted) return;
 
@@ -168,33 +200,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_IN') {
           console.log('✅ User signed in');
-          console.log('🔍 Sign-in details - newUser:', newSession?.user?.id, 'currentUser:', user?.id);
+          console.log('🔍 SIGNED_IN Event Details:');
+          console.log('  - Current User ID:', userRef.current?.id);
+          console.log('  - New Session User ID:', newSession?.user?.id);
+          console.log('  - Full User Object:', JSON.stringify(newSession?.user, null, 2));
+          console.log('  - Session Details:', {
+            access_token: newSession?.access_token ? '[EXISTS]' : '[MISSING]',
+            refresh_token: newSession?.refresh_token ? '[EXISTS]' : '[MISSING]',
+            expires_at: newSession?.expires_at,
+            expires_in: newSession?.expires_in
+          });
+          console.log('  - Current Auth State:', {
+            hasUser: !!userRef.current,
+            hasProfile: !!profile,
+            hasSession: !!session,
+            isInitialized: initializedRef.current
+          });
           
           if (newSession?.user) {
-            if (newSession.user.id !== user?.id) {
+            if (newSession.user.id !== userRef.current?.id) {
               console.log('👤 New user detected, updating state');
+              console.log('  - Previous User:', userRef.current?.id || 'none');
+              console.log('  - New User:', newSession.user.id);
               await setAuthState(newSession.user, newSession);
             } else {
               console.log('🔄 Same user sign-in, updating session only');
+              console.log('  - User ID:', newSession.user.id);
+              console.log('  - User Email:', newSession.user.email);
+              console.log('  - Email Confirmed:', newSession.user.email_confirmed_at ? 'Yes' : 'No');
               setSession(newSession);
               // También recargar el perfil en caso de que haya cambiado
               await loadProfile(newSession.user.id);
             }
           } else {
             console.warn('⚠️ SIGNED_IN event without user data');
+            console.warn('  - Session object:', newSession);
           }
           return; // Procesar SIGNED_IN siempre para actualizar la navbar
         }
 
         // Solo procesar otros eventos si ya estamos inicializados
-        if (!initialized) {
+        if (!initializedRef.current) {
           console.log('⏭️ Skipping auth event during initialization:', event);
           return;
         }
         
         if (event === 'TOKEN_REFRESHED') {
           console.log('🔄 Token refreshed');
-          if (newSession?.user?.id === user?.id) {
+          if (newSession?.user?.id === userRef.current?.id) {
             setSession(newSession);
             setUser(newSession?.user ?? null);
           }
@@ -216,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []); // Dependencias vacías para ejecutar solo al montar
 
   return (
-    <AuthContext.Provider value={{ user, profile, session, loading }}>
+    <AuthContext.Provider value={{ user, profile, session, loading, supabase }}>
       {children}
     </AuthContext.Provider>
   );

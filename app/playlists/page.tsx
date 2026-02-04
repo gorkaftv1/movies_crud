@@ -9,24 +9,24 @@ import type { Playlist } from "@/lib/types";
 
 export default function PlaylistsPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, supabase } = useAuth();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     // Verificar autenticación y cargar playlists
-    if (!authLoading) {
+    if (!authLoading && supabase) {
       if (!user) {
         router.push('/login');
       } else {
         fetchPlaylists();
       }
     }
-  }, [authLoading, user?.id]);
+  }, [authLoading, user?.id, supabase]);
 
   const fetchPlaylists = async () => {
-    if (!user) return;
+    if (!user || !supabase) return;
     
     try {
       setLoading(true);
@@ -34,7 +34,7 @@ export default function PlaylistsPage() {
 
       console.log('🎵 Fetching playlists for user', user?.id);
 
-      const data = await getUserPlaylists(user.id);
+      const data = await getUserPlaylists(supabase, user.id);
 
       console.log(`✅ Playlists fetched successfully: ${data?.length} playlists found`);
       setPlaylists(data || []);

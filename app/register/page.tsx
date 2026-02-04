@@ -2,12 +2,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { uploadUserAvatar } from "@/lib/users";
 import { UserIcon } from "@/components/Icons";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { supabase } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -53,7 +54,7 @@ export default function RegisterPage() {
 
       let avatarUrl = null;
       if (avatarFile && data.user) {
-        const uploadResult = await uploadUserAvatar(avatarFile, data.user.id);
+        const uploadResult = await uploadUserAvatar(supabase, avatarFile, data.user.id);
         console.log('avatar uploadResult', uploadResult);
         if (uploadResult.url) avatarUrl = uploadResult.url;
       }

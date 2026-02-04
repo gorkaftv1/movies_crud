@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { createMovie } from "@/lib/movies";
 import { uploadMoviePortrait } from "@/lib/utils";
-import { supabase } from "@/lib/supabase/client";
 import type { AddMovieFormData } from "@/lib/types";
 
 interface AddMovieFormDataExtended extends AddMovieFormData {
@@ -13,7 +12,7 @@ interface AddMovieFormDataExtended extends AddMovieFormData {
 
 export default function AddMovieForm() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, supabase } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -66,7 +65,9 @@ export default function AddMovieForm() {
   };
 
   const uploadPortrait = async (file: File, movieId: string): Promise<string | null> => {
-    const result = await uploadMoviePortrait(file, movieId);
+    if (!supabase) return null;
+    
+    const result = await uploadMoviePortrait(supabase, file, movieId);
     
     if (result.error) {
       setError(result.error);
@@ -78,6 +79,12 @@ export default function AddMovieForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user || !supabase) {
+      setError("Debes estar autenticado para añadir películas");
+      return;
+    }
+    
     setLoading(true);
     setError("");
     setSuccess(false);
@@ -144,7 +151,7 @@ export default function AddMovieForm() {
       }
 
       // Insertar la película en la base de datos
-      const movie = await createMovie(movieData);
+      const movie = await createMovie(supabase, movieData);
 
       // Subir la carátula si se proporcionó
       if (formData.portrait_file && movie) {

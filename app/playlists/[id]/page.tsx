@@ -1,11 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { toggleFavorite } from "@/lib/favorites";
 import { getPlaylistWithDetails, addMovieToPlaylist } from "@/lib/playlists";
 import { SpinnerIcon, PlaylistIcon, MovieIcon, HeartIcon, HeartFilledIcon, StarFilledIcon, ImageIcon, UserIcon, LockIcon, UnlockIcon, EditIcon, PlusIcon, TrashIcon } from "@/components/Icons";
-import { useAuth } from "@/lib/auth/AuthContext";
 import type { Movie, Playlist } from "@/lib/types";
 
 interface MovieCardProps {
@@ -112,7 +111,7 @@ export default function PlaylistDetailPage() {
   const router = useRouter();
   const params = useParams();
   const playlistId = params?.id as string;
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, supabase } = useAuth();
   
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [movies, setMovies] = useState<Movie[]>([]);
@@ -128,9 +127,9 @@ export default function PlaylistDetailPage() {
 
   // Effect for initial load and playlist ID changes
   useEffect(() => {
-    if (!playlistId || authLoading) return;
+    if (!playlistId || authLoading || !supabase) return;
     fetchPlaylistData();
-  }, [playlistId, authLoading]);
+  }, [playlistId, authLoading, supabase]);
 
   // Effect for user changes
   useEffect(() => {
@@ -144,7 +143,7 @@ export default function PlaylistDetailPage() {
       setLoading(true);
       setError("");
 
-      const { data, error } = await getPlaylistWithDetails(playlistId, user);
+      const { data, error } = await getPlaylistWithDetails(supabase, playlistId, user);
 
       if (error) {
         throw new Error(error);
@@ -199,7 +198,8 @@ export default function PlaylistDetailPage() {
   };
 
   const handleToggleFavorite = async (movieId: string) => {
-    await toggleFavorite(movieId);
+    if (!supabase) return;
+    await toggleFavorite(supabase, movieId);
     // Update local state instead of refetching
     setMovies(prevMovies => 
       prevMovies.map(movie => 
@@ -267,7 +267,7 @@ export default function PlaylistDetailPage() {
 
       // Usar la nueva función addMovieToPlaylist para cada película seleccionada
       for (const movieId of selectedMovieIds) {
-        const result = await addMovieToPlaylist(playlistId, movieId);
+        const result = await addMovieToPlaylist(supabase, playlistId, movieId);
         if (!result.success) {
           throw new Error(result.error || 'Error al añadir película');
         }

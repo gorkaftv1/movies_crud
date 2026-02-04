@@ -1,10 +1,11 @@
-import { supabase } from '../supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UploadResult } from '../types';
 
 /**
  * Sube un archivo al bucket de retratos de Supabase
  */
 export const uploadMoviePortrait = async (
+  supabase: SupabaseClient,
   file: File,
   movieId: string
 ): Promise<UploadResult> => {
@@ -56,7 +57,7 @@ export const uploadMoviePortrait = async (
 /**
  * Elimina un archivo del bucket de retratos
  */
-export const deleteMoviePortrait = async (filePath: string): Promise<{ error?: string }> => {
+export const deleteMoviePortrait = async (supabase: SupabaseClient, filePath: string): Promise<{ error?: string }> => {
   try {
     const { error } = await supabase.storage
       .from('portraits')
@@ -77,6 +78,7 @@ export const deleteMoviePortrait = async (filePath: string): Promise<{ error?: s
  * Sube un archivo de avatar de usuario
  */
 export const uploadUserAvatar = async (
+  supabase: SupabaseClient,
   file: File, 
   userId: string
 ): Promise<UploadResult> => {
@@ -128,7 +130,7 @@ export const uploadUserAvatar = async (
 /**
  * Elimina un avatar de usuario
  */
-export const deleteUserAvatar = async (filePath: string): Promise<{ error?: string }> => {
+export const deleteUserAvatar = async (supabase: SupabaseClient, filePath: string): Promise<{ error?: string }> => {
   try {
     const { error } = await supabase.storage
       .from('avatars')

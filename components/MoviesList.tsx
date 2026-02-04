@@ -17,7 +17,7 @@ import MovieCard from "@/components/MovieCard";
 
 // --- COMPONENTE PRINCIPAL: MoviesList ---
 export default function MoviesList() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, supabase } = useAuth();
   const router = useRouter();
   const [allMovies, setAllMovies] = useState<MovieWithFavorite[]>([]);
   const [filteredMovies, setFilteredMovies] = useState<MovieWithFavorite[]>([]);
@@ -31,16 +31,22 @@ export default function MoviesList() {
 
   // 1. Cargar datos cuando la sesión esté lista
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && supabase) {
       fetchMovies();
     }
-  }, [authLoading, user?.id]); // Refrescar si el ID de usuario cambia (login/logout)
+  }, [authLoading, user?.id, supabase]); // Refrescar si el ID de usuario cambia (login/logout)
 
   const fetchMovies = async () => {
     try {
       setLoading(true);
       setError("");
-      const { data, error: fetchError } = await getAllMoviesWithOptionalFavorites();
+      
+      if (!supabase) {
+        console.warn('Supabase client not available yet');
+        return;
+      }
+      
+      const { data, error: fetchError } = await getAllMoviesWithOptionalFavorites(supabase);
 
       console.log('fetchMovies result:', { length: data?.length ?? 0, error: fetchError });
 
@@ -88,7 +94,7 @@ export default function MoviesList() {
 
   // 3. Manejo de Favoritos con Actualización Optimista
   const handleToggleFavorite = async (movieId: string) => {
-    if (!user) return;
+    if (!user || !supabase) return;
 
     // Helper para actualizar el estado local
     const updateLocal = (list: MovieWithFavorite[]) => 
@@ -97,7 +103,7 @@ export default function MoviesList() {
     setAllMovies(prev => updateLocal(prev));
     setFilteredMovies(prev => updateLocal(prev));
 
-    const result = await toggleFavorite(movieId);
+    const result = await toggleFavorite(supabase, movieId);
     
     if (!result.success) {
       // Si falla, revertimos el cambio

@@ -1,18 +1,20 @@
 // Aquí irá la lógica relacionada con usuarios (users)
-import { supabase } from '../supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UploadResult } from '../types';
 import { uploadUserAvatar as _uploadUserAvatar, deleteUserAvatar as _deleteUserAvatar } from '@/lib/utils';
 
-// Re-export utilities from lib/utils to centralize user operations here
-export const uploadUserAvatar = _uploadUserAvatar;
-export const deleteUserAvatar = _deleteUserAvatar;
+// Wrapper functions for utils that now require client
+export const uploadUserAvatar = (supabase: SupabaseClient, file: File, userId: string) =>
+  _uploadUserAvatar(supabase, file, userId);
 
-// uploadUserAvatar and deleteUserAvatar are re-exported from lib/utils above
+export const deleteUserAvatar = (supabase: SupabaseClient, filePath: string) =>
+  _deleteUserAvatar(supabase, filePath);
 
 /**
  * Intenta hacer login con username o email
  */
 export const signInWithUsernameOrEmail = async (
+  supabase: SupabaseClient,
 	identifier: string,
 	password: string
 ) => {
@@ -107,7 +109,7 @@ export const signInWithUsernameOrEmail = async (
 /**
  * Verifica si un username está disponible
  */
-export const isUsernameAvailable = async (username: string): Promise<boolean> => {
+export const isUsernameAvailable = async (supabase: SupabaseClient, username: string): Promise<boolean> => {
 	try {
 		const { data, error } = await supabase
 			.from('profiles')
@@ -126,7 +128,7 @@ export const isUsernameAvailable = async (username: string): Promise<boolean> =>
 /**
  * Actualiza la contraseña del usuario actual
  */
-export const updatePassword = async (newPassword: string): Promise<{ error?: string }> => {
+export const updatePassword = async (supabase: SupabaseClient, newPassword: string): Promise<{ error?: string }> => {
 	try {
 		const { error } = await supabase.auth.updateUser({
 			password: newPassword
@@ -145,6 +147,7 @@ export const updatePassword = async (newPassword: string): Promise<{ error?: str
  * Actualiza el avatar del usuario actual
  */
 export const updateUserAvatar = async (
+  supabase: SupabaseClient,
 	userId: string,
 	file: File,
 	currentAvatarPath?: string
@@ -152,11 +155,11 @@ export const updateUserAvatar = async (
 	try {
 		// Si hay un avatar anterior, eliminarlo
 		if (currentAvatarPath) {
-			await deleteUserAvatar(currentAvatarPath);
+			await deleteUserAvatar(supabase, currentAvatarPath);
 		}
 
 		// Subir el nuevo avatar
-		const uploadResult = await uploadUserAvatar(file, userId);
+		const uploadResult = await uploadUserAvatar(supabase, file, userId);
 		
 		if (uploadResult.error) {
 			return uploadResult;
@@ -185,7 +188,7 @@ export const updateUserAvatar = async (
  * - Elimina las películas del usuario (que eliminará automáticamente favoritos y playlists por CASCADE)
  * - Elimina el perfil y la cuenta de autenticación
  */
-export const deleteUserAccount = async (userId: string): Promise<{ error?: string }> => {
+export const deleteUserAccount = async (supabase: SupabaseClient, userId: string): Promise<{ error?: string }> => {
 	try {
 		// 1. Obtener todas las películas del usuario para contar
 		const { data: userMovies, error: fetchError } = await supabase

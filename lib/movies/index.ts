@@ -1,11 +1,11 @@
-import { supabase } from '../supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Movie } from '../types';
 
 /**
  * Obtiene todas las películas con el perfil del creador.
  * (Nota: Para favoritos usamos la función de /lib/favorites)
  */
-export const getAllMovies = async () => {
+export const getAllMovies = async (supabase: SupabaseClient) => {
   const { data, error } = await supabase
     .from('movies')
     .select(`
@@ -27,7 +27,7 @@ export const getAllMovies = async () => {
 /**
  * Crea una película vinculada al usuario actual.
  */
-export const createMovie = async (movieData: Partial<Movie>) => {
+export const createMovie = async (supabase: SupabaseClient, movieData: Partial<Movie>) => {
   const { data, error } = await supabase
     .from('movies')
     .insert([movieData])
@@ -41,7 +41,7 @@ export const createMovie = async (movieData: Partial<Movie>) => {
 /**
  * Actualiza una película existente por su ID.
  */
-export const updateMovie = async (id: string, updates: Partial<Movie>) => {
+export const updateMovie = async (supabase: SupabaseClient, id: string, updates: Partial<Movie>) => {
   const { data, error } = await supabase
     .from('movies')
     .update(updates)
@@ -61,7 +61,7 @@ export const updateMovie = async (id: string, updates: Partial<Movie>) => {
  * Con la nueva estructura normalizada, favoritos y playlists se eliminan automáticamente
  * por las foreign keys con CASCADE DELETE.
  */
-export const deleteMovie = async (id: string, userId: string) => {
+export const deleteMovie = async (supabase: SupabaseClient, id: string, userId: string) => {
   try {
     // 1. Primero obtener datos de la película para verificar ownership y obtener portrait_url
     const { data: movie, error: movieError } = await supabase

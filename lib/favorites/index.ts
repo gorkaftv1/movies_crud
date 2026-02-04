@@ -1,10 +1,10 @@
-import { supabase } from '../supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Favorite, MovieWithFavorite } from '../types';
 
 /**
  * Toggle favorito de una película (añadir o quitar)
  */
-export async function toggleFavorite(movieId: string): Promise<{ success: boolean; isFavorited: boolean; error?: string }> {
+export async function toggleFavorite(supabase: SupabaseClient, movieId: string): Promise<{ success: boolean; isFavorited: boolean; error?: string }> {
 	try {
 		const { data, error } = await supabase.rpc('toggle_favorite', {
 			movie_uuid: movieId
@@ -31,7 +31,7 @@ export async function toggleFavorite(movieId: string): Promise<{ success: boolea
 /**
  * Obtener todas las películas favoritas del usuario actual
  */
-export async function getUserFavorites(): Promise<{ data: Favorite[] | null; error: string | null }> {
+export async function getUserFavorites(supabase: SupabaseClient): Promise<{ data: Favorite[] | null; error: string | null }> {
 	try {
 		const { data, error } = await supabase.rpc('get_user_favorites');
 
@@ -55,7 +55,7 @@ export async function getUserFavorites(): Promise<{ data: Favorite[] | null; err
 /**
  * Verificar si una película específica está en favoritos
  */
-export async function isMovieFavorited(movieId: string): Promise<{ isFavorited: boolean; error?: string }> {
+export async function isMovieFavorited(supabase: SupabaseClient, movieId: string): Promise<{ isFavorited: boolean; error?: string }> {
 	try {
 		const { data: { user } } = await supabase.auth.getUser();
     
@@ -89,7 +89,7 @@ export async function isMovieFavorited(movieId: string): Promise<{ isFavorited: 
 /**
  * Obtener películas con información de si están en favoritos
  */
-export async function getMoviesWithFavorites(): Promise<{ data: MovieWithFavorite[] | null; error: string | null }> {
+export async function getMoviesWithFavorites(supabase: SupabaseClient): Promise<{ data: MovieWithFavorite[] | null; error: string | null }> {
 	try {
 		// Obtener usuario actual para condicionar la inclusión de favoritos
 		const { data: { user } } = await supabase.auth.getUser();
@@ -154,7 +154,7 @@ export async function getMoviesWithFavorites(): Promise<{ data: MovieWithFavorit
 /**
  * Obtener todas las películas sin requerir autenticación, pero con información de favoritos si el usuario está autenticado
  */
-export async function getAllMoviesWithOptionalFavorites(): Promise<{ data: any[] | null; error: string | null }> {
+export async function getAllMoviesWithOptionalFavorites(supabase: SupabaseClient): Promise<{ data: any[] | null; error: string | null }> {
 	try {
 		// Verificar si hay usuario autenticado
 		const { data: { user } } = await supabase.auth.getUser();
@@ -213,7 +213,7 @@ export async function getAllMoviesWithOptionalFavorites(): Promise<{ data: any[]
 /**
  * Obtener películas por IDs, incluyendo información de favoritos si el usuario está autenticado
  */
-export async function getMoviesByIdsWithOptionalFavorites(movieIds: string[]): Promise<{ data: any[] | null; error: string | null }> {
+export async function getMoviesByIdsWithOptionalFavorites(supabase: SupabaseClient, movieIds: string[]): Promise<{ data: any[] | null; error: string | null }> {
 	try {
 		const { data: { user } } = await supabase.auth.getUser();
 

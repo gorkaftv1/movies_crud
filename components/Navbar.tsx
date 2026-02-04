@@ -2,15 +2,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 export default function Navbar() {
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, supabase } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    if (!supabase) return;
+    
     setLoggingOut(true);
     
     try {

@@ -1,12 +1,12 @@
 // Aquí irá la lógica relacionada con playlists
-import { supabase } from '../supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getMoviesByIdsWithOptionalFavorites } from '../favorites';
 import type { Playlist } from '../types';
 
 /**
  * Crea una nueva playlist y retorna el registro insertado.
  */
-export async function createPlaylist(playlistData: any): Promise<any> {
+export async function createPlaylist(supabase: SupabaseClient, playlistData: any): Promise<any> {
   const { data, error } = await supabase
     .from('playlists')
     .insert([playlistData])
@@ -20,7 +20,7 @@ export async function createPlaylist(playlistData: any): Promise<any> {
 /**
  * Obtiene una playlist por su id
  */
-export async function getPlaylistById(playlistId: string): Promise<any> {
+export async function getPlaylistById(supabase: SupabaseClient, playlistId: string): Promise<any> {
   const { data, error } = await supabase
     .from('playlists')
     .select('*')
@@ -34,7 +34,7 @@ export async function getPlaylistById(playlistId: string): Promise<any> {
 /**
  * Obtiene una playlist completa con perfil del creador y películas con favoritos
  */
-export async function getPlaylistWithDetails(playlistId: string, currentUser?: any) {
+export async function getPlaylistWithDetails(supabase: SupabaseClient, playlistId: string, currentUser?: any) {
   try {
     console.log('🎵 Fetching playlist with details:', playlistId);
 
@@ -109,7 +109,7 @@ export async function getPlaylistWithDetails(playlistId: string, currentUser?: a
       if (movies.length > 0 && currentUser) {
         // Agregar información de favoritos
         const movieIds = movies.map((m: any) => m.id);
-        const { data: favoritesData } = await getMoviesByIdsWithOptionalFavorites(movieIds);
+        const { data: favoritesData } = await getMoviesByIdsWithOptionalFavorites(supabase, movieIds);
         if (favoritesData) {
           movies = favoritesData;
         }
@@ -138,7 +138,7 @@ export async function getPlaylistWithDetails(playlistId: string, currentUser?: a
 /**
  * Actualiza una playlist (comprueba propietario mediante user_id)
  */
-export async function updatePlaylist(playlistId: string, userId: string, updateData: any): Promise<any> {
+export async function updatePlaylist(supabase: SupabaseClient, playlistId: string, userId: string, updateData: any): Promise<any> {
   const { data, error } = await supabase
     .from('playlists')
     .update(updateData)
@@ -154,7 +154,7 @@ export async function updatePlaylist(playlistId: string, userId: string, updateD
 /**
  * Elimina una playlist si pertenece al usuario
  */
-export async function deletePlaylist(playlistId: string, userId: string): Promise<{ success: boolean }> {
+export async function deletePlaylist(supabase: SupabaseClient, playlistId: string, userId: string): Promise<{ success: boolean }> {
   const { error } = await supabase
     .from('playlists')
     .delete()
@@ -165,7 +165,7 @@ export async function deletePlaylist(playlistId: string, userId: string): Promis
   return { success: true };
 }
 
-export async function getUserPlaylists(userId: string): Promise<Playlist[]> {
+export async function getUserPlaylists(supabase: SupabaseClient, userId: string): Promise<Playlist[]> {
   const { data, error } = await supabase
     .from('playlists')
     .select('*')
@@ -180,7 +180,7 @@ export async function getUserPlaylists(userId: string): Promise<Playlist[]> {
   return data || [];
 }
 
-export async function addMovieToPlaylist(playlistId: string, movieId: string) {
+export async function addMovieToPlaylist(supabase: SupabaseClient, playlistId: string, movieId: string) {
   try {
     console.log(`🎵 Adding movie ${movieId} to playlist ${playlistId}`);
 
@@ -217,7 +217,7 @@ export async function addMovieToPlaylist(playlistId: string, movieId: string) {
   }
 }
 
-export async function removeMovieFromPlaylist(playlistId: string, movieId: string) {
+export async function removeMovieFromPlaylist(supabase: SupabaseClient, playlistId: string, movieId: string) {
   try {
     console.log(`🎵 Removing movie ${movieId} from playlist ${playlistId}`);
 
@@ -240,7 +240,7 @@ export async function removeMovieFromPlaylist(playlistId: string, movieId: strin
   }
 }
 
-export async function getPlaylistsContainingMovie(movieId: string, userId: string): Promise<string[]> {
+export async function getPlaylistsContainingMovie(supabase: SupabaseClient, movieId: string, userId: string): Promise<string[]> {
   try {
     // Usar la nueva tabla de unión para obtener playlists que contengan la película
     const { data, error } = await supabase

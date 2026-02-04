@@ -9,7 +9,7 @@ import { HeartFilledIcon, StarFilledIcon, ImageIcon } from '@/components/Icons';
 
 export default function FavoritesPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, supabase } = useAuth();
   const [favorites, setFavorites] = useState<MovieWithFavorite[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -19,14 +19,14 @@ export default function FavoritesPage() {
   }, [user, authLoading]);
 
   const checkAuthAndFetchFavorites = async () => {
-    if (authLoading) return; // Wait for auth to initialize
+    if (authLoading || !supabase) return; // Wait for auth to initialize
     
     if (!user) {
       router.push('/login');
       return;
     }
 
-    const { data, error } = await getMoviesWithFavorites();
+    const { data, error } = await getMoviesWithFavorites(supabase);
     
     if (error) {
       console.error('Error fetching favorites:', error);
@@ -40,9 +40,11 @@ export default function FavoritesPage() {
   };
 
   const handleRemoveFavorite = async (movieId: string) => {
+    if (!supabase) return;
+    
     setRemovingId(movieId);
     
-    const result = await toggleFavorite(movieId);
+    const result = await toggleFavorite(supabase, movieId);
     
     if (result.success) {
       // Eliminar de la lista local

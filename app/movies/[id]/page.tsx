@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
 import { getUserPlaylists, addMovieToPlaylist, getPlaylistsContainingMovie } from '@/lib/playlists';
 import { toggleFavorite, isMovieFavorited } from '@/lib/favorites';
 import { deleteMovie } from '@/lib/movies';
@@ -13,8 +12,8 @@ import type { Movie, Playlist } from '@/lib/types';
 export default function MovieDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user, supabase, loading: authLoading } = useAuth();
   const movieId = params.id as string;
-  const { user, loading: authLoading } = useAuth();
   
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +29,7 @@ export default function MovieDetailPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (authLoading) return; // Wait for auth to initialize
+      if (authLoading || !supabase) return; // Wait for auth to initialize
       
       try {
         // Obtener detalles de la película
@@ -53,15 +52,15 @@ export default function MovieDetailPage() {
           setIsOwner(user.id === movieData.user_id);
 
           // Verificar si es favorito
-          const { isFavorited } = await isMovieFavorited(movieId);
+          const { isFavorited } = await isMovieFavorited(supabase, movieId);
           setIsFav(isFavorited);
 
           // Obtener playlists del usuario
-          const userPlaylists = await getUserPlaylists(user.id);
+          const userPlaylists = await getUserPlaylists(supabase, user.id);
           setPlaylists(userPlaylists);
 
           // Obtener playlists que ya contienen esta película
-          const playlistIds = await getPlaylistsContainingMovie(movieId, user.id);
+          const playlistIds = await getPlaylistsContainingMovie(supabase, movieId, user.id);
           setPlaylistsWithMovie(playlistIds);
         }
       } catch (error) {
@@ -72,29 +71,29 @@ export default function MovieDetailPage() {
     };
 
     fetchData();
-  }, [movieId, router, user?.id, authLoading]);
+  }, [movieId, router, user?.id, authLoading, supabase]);
 
   const handleToggleFavorite = async () => {
-    if (!user) {
+    if (!user || !supabase) {
       router.push('/login');
       return;
     }
 
-    const result = await toggleFavorite(movieId);
+    const result = await toggleFavorite(supabase, movieId);
     if (result.success) {
       setIsFav(result.isFavorited);
     }
   };
 
   const handleDeleteMovie = async () => {
-    if (!user || !isOwner) return;
+    if (!user || !isOwner || !supabase) return;
 
     try {
       setDeleting(true);
       console.log('🗑️ Deleting movie:', movieId);
 
       // Usar la función mejorada que maneja cascadas
-      const result = await deleteMovie(movieId, user.id);
+      const result = await deleteMovie(supabase, movieId, user.id);
 
       if (!result.success) {
         throw new Error(result.error || 'Error desconocido');
@@ -114,7 +113,7 @@ export default function MovieDetailPage() {
   };
 
   const handleAddToPlaylist = async () => {
-    if (!selectedPlaylist) {
+    if (!selectedPlaylist || !supabase) {
       setMessage('Por favor, selecciona una playlist');
       return;
     }
@@ -122,7 +121,7 @@ export default function MovieDetailPage() {
     setAddingToPlaylist(true);
     setMessage('');
 
-    const result = await addMovieToPlaylist(selectedPlaylist, movieId);
+    const result = await addMovieToPlaylist(supabase, selectedPlaylist, movieId);
     
     if (result.success) {
       setMessage('✅ Película añadida a la playlist');
