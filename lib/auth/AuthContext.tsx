@@ -32,143 +32,169 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   // Función para cargar perfil
   const loadProfile = async (userId: string) => {
     try {
+      console.log('🔍 Loading profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('username, avatar_url')
         .eq('id', userId)
         .single();
       
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 = no rows returned, which is OK for new users
-        throw error;
+      if (error && error.code === 'PGRST116') {
+        // No existe perfil, crear uno básico
+        console.log('📝 Creating basic profile for user');
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert([{ id: userId }])
+          .select('username, avatar_url')
+          .single();
+          
+        if (createError) {
+          console.error('❌ Error creating profile:', createError);
+          setProfile(null);
+        } else {
+          console.log('✅ Profile created:', newProfile);
+          setProfile(newProfile);
+        }
+      } else if (error) {
+        console.error('❌ Profile load error:', error);
+        setProfile(null);
+      } else {
+        console.log('👤 Profile loaded:', data);
+        setProfile(data || null);
       }
-      
-      console.log('👤 Profile loaded:', data);
-      setProfile(data || null);
     } catch (error) {
       console.error('❌ Error loading profile:', error);
       setProfile(null);
     }
   };
 
+  // Función simplificada para establecer sesión
+  const setAuthState = async (newUser: User | null, newSession: Session | null) => {
+    console.log('🔄 Setting auth state for user:', newUser?.id);
+    setUser(newUser);
+    setSession(newSession);
+    
+    if (newUser) {
+      await loadProfile(newUser.id);
+      console.log('✅ Auth state updated with profile');
+    } else {
+      setProfile(null);
+      console.log('✅ Auth state cleared');
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
-    let isInitialized = false;
+
+    // Inicializar sesión al montar
+    const initializeAuth = async () => {
+      try {
+        console.log('🚀 Initializing auth...');
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('❌ Error getting initial session:', error);
+        }
+        
+        if (mounted) {
+          if (initialSession?.user) {
+            console.log('✅ Found existing session for user:', initialSession.user.id);
+            await setAuthState(initialSession.user, initialSession);
+          } else {
+            console.log('❌ No existing session found');
+            setUser(null);
+            setSession(null);
+            setProfile(null);
+          }
+          setInitialized(true);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('❌ Error initializing auth:', error);
+        if (mounted) {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setInitialized(true);
+          setLoading(false);
+        }
+      }
+    };
 
     // Listen for explicit profile-updated events (dispatched after profile upsert)
     const onProfileUpdated = async (e: Event) => {
       try {
         const evt = e as CustomEvent;
         const userId = evt?.detail?.userId;
-        if (mounted && userId) {
-          console.log('🔄 profile-updated event received, reloading profile for', userId);
+        if (mounted && userId && user?.id === userId) {
+          console.log('🔄 Profile updated event received, reloading profile');
           await loadProfile(userId);
         }
       } catch (err) {
-        // ignore
-      }
-    };
-
-    // Handle visibility change to refresh session when coming back from background
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible' && isInitialized && user) {
-        console.log('👀 Page became visible, checking session validity');
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user?.id === user.id) {
-            console.log('✅ Session still valid for same user');
-          }
-        } catch (error) {
-          console.error('Error checking session on visibility change:', error);
-        }
+        console.error('Error handling profile update:', err);
       }
     };
 
     if (typeof window !== 'undefined') {
       window.addEventListener('profile-updated', onProfileUpdated as EventListener);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
+      // Comentado temporalmente para debugging
+      // document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
-    // Escuchar cambios de autenticación (incluyendo sesión inicial)
+    // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('🔐 Auth event:', event, 'isInitialized:', isInitialized, 'currentUser:', user?.id, 'newUser:', newSession?.user?.id);
+        console.log('🔐 Auth event:', event, 'initialized:', initialized, 'currentUser:', user?.id, 'newUser:', newSession?.user?.id);
         
         if (!mounted) return;
 
-        // Manejar todos los eventos de autenticación de manera consistente
         if (event === 'INITIAL_SESSION') {
-          console.log('🚀 Processing initial session');
-          // Evitar procesamiento duplicado en React StrictMode
-          if (newSession?.user && !user) {
-            setUser(newSession.user);
-            setSession(newSession);
-            await loadProfile(newSession.user.id);
-            isInitialized = true;
-            console.log('✅ Initial session processed, user set:', newSession.user.id);
-          } else if (newSession?.user && user?.id === newSession.user.id) {
-            console.log('⏭️ Skipping duplicate INITIAL_SESSION for same user');
-            isInitialized = true;
-          } else if (!newSession?.user) {
-            console.log('❌ No user in initial session');
-          }
-          setLoading(false);
+          // Skip - ya manejado en initializeAuth
           return;
         }
 
         if (event === 'SIGNED_OUT') {
           console.log('👋 User signed out');
           setUser(null);
-          setProfile(null);
           setSession(null);
-          setLoading(false);
-          isInitialized = false;
-          return;
+          setProfile(null);
+          return; // Procesar SIGNED_OUT siempre
         }
 
         if (event === 'SIGNED_IN') {
-          const newUserId = newSession?.user?.id;
-          const currentUserId = user?.id;
+          console.log('✅ User signed in');
+          console.log('🔍 Sign-in details - newUser:', newSession?.user?.id, 'currentUser:', user?.id);
+          
+          if (newSession?.user) {
+            if (newSession.user.id !== user?.id) {
+              console.log('👤 New user detected, updating state');
+              await setAuthState(newSession.user, newSession);
+            } else {
+              console.log('🔄 Same user sign-in, updating session only');
+              setSession(newSession);
+              // También recargar el perfil en caso de que haya cambiado
+              await loadProfile(newSession.user.id);
+            }
+          } else {
+            console.warn('⚠️ SIGNED_IN event without user data');
+          }
+          return; // Procesar SIGNED_IN siempre para actualizar la navbar
+        }
 
-          console.log('🔍 SIGNED_IN analysis:', {
-            isInitialized,
-            newUserId,
-            currentUserId,
-            sameUser: newUserId === currentUserId,
-            hasCurrentUser: !!currentUserId
-          });
-
-          // Si ya se procesó INITIAL_SESSION y es el mismo usuario, es revalidación
-          if (isInitialized && newUserId === currentUserId) {
-            console.log('🔄 Session revalidation for same user');
-            setSession(newSession);
-            setUser(newSession?.user ?? null);
-          }
-          // Si no hay usuario actual pero ya se inicializó, probablemente es una nueva ventana con sesión existente
-          else if (isInitialized && !currentUserId && newUserId) {
-            console.log('🪟 Session restoration in new window');
-            setUser(newSession.user);
-            setSession(newSession);
-            await loadProfile(newUserId);
-          }
-          // Login completamente nuevo (no se había inicializado o usuario diferente)
-          else if (newUserId && (!isInitialized || newUserId !== currentUserId)) {
-            console.log('✅ New user login detected');
-            setUser(newSession.user);
-            setSession(newSession);
-            await loadProfile(newUserId);
-            isInitialized = true;
-          }
-          setLoading(false);
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('🔄 Token refreshed for user:', newSession?.user?.id);
-          // Solo actualizar sesión y user, mantener perfil si es el mismo usuario
+        // Solo procesar otros eventos si ya estamos inicializados
+        if (!initialized) {
+          console.log('⏭️ Skipping auth event during initialization:', event);
+          return;
+        }
+        
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('🔄 Token refreshed');
           if (newSession?.user?.id === user?.id) {
-            console.log('🔄 Token refreshed for same user');
             setSession(newSession);
             setUser(newSession?.user ?? null);
           }
@@ -176,15 +202,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // Inicializar auth
+    initializeAuth();
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('profile-updated', onProfileUpdated as EventListener);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        // document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
-  }, [user?.id]); // Dependencia del user.id para detectar cambios
+  }, []); // Dependencias vacías para ejecutar solo al montar
 
   return (
     <AuthContext.Provider value={{ user, profile, session, loading }}>

@@ -2,25 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth/AuthContext';
 import type { MovieWithFavorite } from '@/lib/types';
 import { getMoviesWithFavorites, toggleFavorite} from '@/lib/favorites';
 import { HeartFilledIcon, StarFilledIcon, ImageIcon } from '@/components/Icons';
 
 export default function FavoritesPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [favorites, setFavorites] = useState<MovieWithFavorite[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuthAndFetchFavorites();
-  }, []);
+  }, [user, authLoading]);
 
   const checkAuthAndFetchFavorites = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    if (authLoading) return; // Wait for auth to initialize
     
-    if (!session) {
+    if (!user) {
       router.push('/login');
       return;
     }

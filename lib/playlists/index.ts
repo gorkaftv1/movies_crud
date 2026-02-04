@@ -1,5 +1,6 @@
 // Aquí irá la lógica relacionada con playlists
 import { supabase } from '../supabase/client';
+import { getMoviesByIdsWithOptionalFavorites } from '../favorites';
 import type { Playlist } from '../types';
 
 /**
@@ -28,6 +29,110 @@ export async function getPlaylistById(playlistId: string): Promise<any> {
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Obtiene una playlist completa con perfil del creador y películas con favoritos
+ */
+export async function getPlaylistWithDetails(playlistId: string, currentUser?: any) {
+  try {
+    console.log('🎵 Fetching playlist with details:', playlistId);
+
+    // Obtener datos de la playlist con el perfil del creador
+    const { data: playlistData, error: playlistError } = await supabase
+      .from('playlists')
+      .select(`
+        *,
+        profiles:user_id (
+          username
+        )
+      `)
+      .eq('id', playlistId)
+      .single();
+
+    if (playlistError) {
+      console.error('❌ Error fetching playlist:', playlistError);
+      
+      if (playlistError.code === 'PGRST116') {
+        throw new Error('Playlist no encontrada');
+      }
+      
+      if (playlistError.message.includes('row-level security') || 
+          playlistError.message.includes('policy')) {
+        throw new Error('No tienes permiso para ver esta playlist');
+      }
+      
+      throw playlistError;
+    }
+
+    console.log('✅ Playlist fetched:', playlistData);
+    
+    // Verificar acceso a playlist privada
+    if (!playlistData.is_public) {
+      if (!currentUser) {
+        throw new Error('Debes iniciar sesión para ver esta playlist privada');
+      }
+      if (currentUser.id !== playlistData.user_id) {
+        throw new Error('No tienes permiso para ver esta playlist privada');
+      }
+    }
+
+    // Obtener las películas de la playlist usando la tabla de unión
+    const { data: playlistMovies, error: moviesError } = await supabase
+      .from('playlist_movies')
+      .select(`
+        movie_id,
+        movies (
+          *,
+          profiles:user_id (
+            username
+          )
+        )
+      `)
+      .eq('playlist_id', playlistId)
+      .order('created_at', { ascending: true });
+
+    if (moviesError) {
+      console.error('❌ Error fetching playlist movies:', moviesError);
+      throw new Error('Error al cargar las películas de la playlist');
+    }
+
+    // Extraer solo los datos de las películas y agregar favoritos si hay usuario
+    console.log('🔍 Raw playlistMovies data:', playlistMovies);
+    
+    let movies: any[] = [];
+    if (playlistMovies && playlistMovies.length > 0) {
+      // Extraer las películas del resultado del join
+      movies = playlistMovies.map(pm => pm.movies).filter(movie => movie !== null && movie !== undefined);
+      console.log('🎬 Extracted movies:', movies);
+      
+      if (movies.length > 0 && currentUser) {
+        // Agregar información de favoritos
+        const movieIds = movies.map((m: any) => m.id);
+        const { data: favoritesData } = await getMoviesByIdsWithOptionalFavorites(movieIds);
+        if (favoritesData) {
+          movies = favoritesData;
+        }
+      }
+    }
+
+    console.log('✅ Final movies array:', movies);
+
+    return {
+      data: {
+        playlist: playlistData,
+        movies: movies,
+        isOwner: currentUser?.id === playlistData.user_id
+      },
+      error: null
+    };
+  } catch (err: any) {
+    console.error('💥 Error fetching playlist with details:', err);
+    return {
+      data: null,
+      error: err.message || 'Error al cargar la playlist'
+    };
+  }
 }
 
 /**
@@ -77,80 +182,57 @@ export async function getUserPlaylists(userId: string): Promise<Playlist[]> {
 
 export async function addMovieToPlaylist(playlistId: string, movieId: string) {
   try {
-    // Obtener la playlist actual
-    const { data: playlist, error: fetchError } = await supabase
-      .from('playlists')
-      .select('movies')
-      .eq('id', playlistId)
+    console.log(`🎵 Adding movie ${movieId} to playlist ${playlistId}`);
+
+    // Verificar que la película no esté ya en la playlist
+    const { data: existing } = await supabase
+      .from('playlist_movies')
+      .select('id')
+      .eq('playlist_id', playlistId)
+      .eq('movie_id', movieId)
       .single();
 
-    if (fetchError) {
-      console.error('Error fetching playlist:', fetchError);
-      return { success: false, error: fetchError.message };
-    }
-
-    // Verificar si la película ya está en la playlist
-    const currentMovies = playlist.movies || [];
-    if (currentMovies.includes(movieId)) {
+    if (existing) {
       return { success: false, error: 'La película ya está en esta playlist' };
     }
 
-    // Agregar la película al array
-    const updatedMovies = [...currentMovies, movieId];
+    // Agregar la película a la playlist
+    const { error: insertError } = await supabase
+      .from('playlist_movies')
+      .insert([{
+        playlist_id: playlistId,
+        movie_id: movieId
+      }]);
 
-    // Actualizar la playlist
-    const { error: updateError } = await supabase
-      .from('playlists')
-      .update({ 
-        movies: updatedMovies,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', playlistId);
-
-    if (updateError) {
-      console.error('Error updating playlist:', updateError);
-      return { success: false, error: updateError.message };
+    if (insertError) {
+      console.error('❌ Error adding movie to playlist:', insertError);
+      return { success: false, error: insertError.message };
     }
 
+    console.log('✅ Movie added to playlist successfully');
     return { success: true };
   } catch (error: any) {
-    console.error('Error adding movie to playlist:', error);
+    console.error('💥 Error adding movie to playlist:', error);
     return { success: false, error: error.message };
   }
 }
 
 export async function removeMovieFromPlaylist(playlistId: string, movieId: string) {
   try {
-    // Obtener la playlist actual
-    const { data: playlist, error: fetchError } = await supabase
-      .from('playlists')
-      .select('movies')
-      .eq('id', playlistId)
-      .single();
+    console.log(`🎵 Removing movie ${movieId} from playlist ${playlistId}`);
 
-    if (fetchError) {
-      console.error('Error fetching playlist:', fetchError);
-      return { success: false, error: fetchError.message };
+    const { error: deleteError } = await supabase
+      .from('playlist_movies')
+      .delete()
+      .eq('playlist_id', playlistId)
+      .eq('movie_id', movieId);
+
+    if (deleteError) {
+      console.error('❌ Error removing movie from playlist:', deleteError);
+      return { success: false, error: deleteError.message };
     }
 
-    // Remover la película del array
-    const currentMovies = playlist.movies || [];
-    const updatedMovies = currentMovies.filter((id: string) => id !== movieId);
-
-    // Actualizar la playlist
-    const { error: updateError } = await supabase
-      .from('playlists')
-      .update({ 
-        movies: updatedMovies,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', playlistId);
-
-    if (updateError) {
-      console.error('Error updating playlist:', updateError);
-      return { success: false, error: updateError.message };
-    }
-
+    console.log('✅ Movie removed from playlist successfully');
     return { success: true };
   } catch (error: any) {
     console.error('Error removing movie from playlist:', error);
@@ -159,17 +241,28 @@ export async function removeMovieFromPlaylist(playlistId: string, movieId: strin
 }
 
 export async function getPlaylistsContainingMovie(movieId: string, userId: string): Promise<string[]> {
-  // Usar el operador @> de PostgreSQL para buscar en arrays
-  const { data, error } = await supabase
-    .from('playlists')
-    .select('id')
-    .eq('user_id', userId)
-    .contains('movies', [movieId]);
+  try {
+    // Usar la nueva tabla de unión para obtener playlists que contengan la película
+    const { data, error } = await supabase
+      .from('playlist_movies')
+      .select(`
+        playlist_id,
+        playlists!inner (
+          id,
+          user_id
+        )
+      `)
+      .eq('movie_id', movieId)
+      .eq('playlists.user_id', userId);
 
-  if (error) {
-    console.error('Error fetching playlists containing movie:', error);
+    if (error) {
+      console.error('Error fetching playlists containing movie:', error);
+      return [];
+    }
+
+    return data?.map(item => item.playlist_id) || [];
+  } catch (error) {
+    console.error('Error in getPlaylistsContainingMovie:', error);
     return [];
   }
-
-  return data?.map(item => item.id) || [];
 }

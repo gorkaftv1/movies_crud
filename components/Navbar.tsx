@@ -17,12 +17,11 @@ export default function Navbar() {
       console.log('🚪 Logging out...');
       await supabase.auth.signOut();
       console.log('✅ Logout successful');
+      // La redirección se manejará automáticamente por el AuthContext
     } catch (err) {
       console.error('❌ Error during logout:', err);
     } finally {
       setLoggingOut(false);
-      // Redirigir después de limpiar el estado
-      router.push("/");
     }
   };
 

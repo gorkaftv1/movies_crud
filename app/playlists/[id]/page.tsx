@@ -2,8 +2,10 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { toggleFavorite, getMoviesByIdsWithOptionalFavorites } from "@/lib/favorites";
+import { toggleFavorite } from "@/lib/favorites";
+import { getPlaylistWithDetails, addMovieToPlaylist } from "@/lib/playlists";
 import { SpinnerIcon, PlaylistIcon, MovieIcon, HeartIcon, HeartFilledIcon, StarFilledIcon, ImageIcon, UserIcon, LockIcon, UnlockIcon, EditIcon, PlusIcon, TrashIcon } from "@/components/Icons";
+import { useAuth } from "@/lib/auth/AuthContext";
 import type { Movie, Playlist } from "@/lib/types";
 
 interface MovieCardProps {
@@ -110,13 +112,12 @@ export default function PlaylistDetailPage() {
   const router = useRouter();
   const params = useParams();
   const playlistId = params?.id as string;
+  const { user, loading: authLoading } = useAuth();
   
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [showAddMoviesModal, setShowAddMoviesModal] = useState(false);
   const [availableMovies, setAvailableMovies] = useState<Movie[]>([]);
@@ -125,125 +126,42 @@ export default function PlaylistDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Effect for initial load and playlist ID changes
   useEffect(() => {
-    checkAuthAndFetchPlaylist();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          setIsAuthenticated(true);
-        } else {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-        await fetchPlaylistData(session?.user);
-      }
-    );
+    if (!playlistId || authLoading) return;
+    fetchPlaylistData();
+  }, [playlistId, authLoading]);
 
-    return () => subscription.unsubscribe();
-  }, [playlistId]);
-
-  const checkAuthAndFetchPlaylist = async () => {
-    try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError) {
-        console.error('Auth error:', authError);
-      }
-      
-      setUser(user);
-      setIsAuthenticated(!!user);
-      
-      await fetchPlaylistData(user);
-    } catch (error) {
-      console.error('Error checking auth:', error);
-      await fetchPlaylistData(null);
+  // Effect for user changes
+  useEffect(() => {
+    if (!authLoading && playlist) {
+      setIsOwner(user?.id === playlist.user_id);
     }
-  };
+  }, [user?.id, playlist?.user_id, authLoading]);
 
-  const fetchPlaylistData = async (currentUser?: any) => {
+  const fetchPlaylistData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      console.log('🎵 Fetching playlist:', playlistId);
+      const { data, error } = await getPlaylistWithDetails(playlistId, user);
 
-      // Obtener datos de la playlist con el perfil del creador
-      const { data: playlistData, error: playlistError } = await supabase
-        .from('playlists')
-        .select(`
-          *,
-          profiles:user_id (
-            username
-          )
-        `)
-        .eq('id', playlistId)
-        .single();
-
-      if (playlistError) {
-        console.error('❌ Error fetching playlist:', playlistError);
-        
-        if (playlistError.code === 'PGRST116') {
-          throw new Error('Playlist no encontrada');
-        }
-        
-        if (playlistError.message.includes('row-level security') || 
-            playlistError.message.includes('policy')) {
-          throw new Error('No tienes permiso para ver esta playlist');
-        }
-        
-        throw playlistError;
+      if (error) {
+        throw new Error(error);
       }
 
-      console.log('✅ Playlist fetched:', playlistData);
-      
-      // Verificar acceso a playlist privada
-      if (!playlistData.is_public) {
-        if (!currentUser) {
-          throw new Error('Debes iniciar sesión para ver esta playlist privada');
-        }
-        if (currentUser.id !== playlistData.user_id) {
-          throw new Error('No tienes permiso para ver esta playlist privada');
-        }
+      if (data) {
+        setPlaylist(data.playlist);
+        // Asegurar que movies sea un array plano, no anidado
+        const moviesArray = Array.isArray(data.movies) ? data.movies.flat() : [];
+        setMovies(moviesArray);
+        setIsOwner(data.isOwner);
       }
       
-      setPlaylist(playlistData);
-      setIsOwner(currentUser?.id === playlistData.user_id);
-
-      // Si la playlist tiene películas, obtenerlas
-      if (playlistData.movies && playlistData.movies.length > 0) {
-        const { data, error } = await getMoviesByIdsWithOptionalFavorites(playlistData.movies);
-        if (error) throw new Error(error);
-
-        setMovies(data || []);
-      } else {
-        setMovies([]);
-      }
       setLoading(false);
     } catch (err: any) {
       console.error('💥 Error:', err);
       setError(err.message || 'Error al cargar la playlist');
-      setLoading(false);
-    }
-  };
-
-  const fetchMovies = async (movieIds: string[], currentUser?: any) => {
-    try {
-      console.log('🎬 Fetching movies:', movieIds);
-      const { data, error } = await getMoviesByIdsWithOptionalFavorites(movieIds);
-
-      if (error) {
-        console.error('❌ Error fetching movies:', error);
-        throw new Error(error);
-      }
-
-      console.log(`✅ Movies fetched: ${data?.length} movies`);
-      setMovies(data || []);
-    } catch (err: any) {
-      console.error('💥 Error fetching movies:', err);
-      setError(err.message || 'Error al cargar las películas');
-    } finally {
       setLoading(false);
     }
   };
@@ -282,10 +200,14 @@ export default function PlaylistDetailPage() {
 
   const handleToggleFavorite = async (movieId: string) => {
     await toggleFavorite(movieId);
-    // Recargar películas para actualizar el estado de favoritos
-    if (playlist?.movies) {
-      await fetchMovies(playlist.movies, user);
-    }
+    // Update local state instead of refetching
+    setMovies(prevMovies => 
+      prevMovies.map(movie => 
+        movie.id === movieId 
+          ? { ...movie, is_favorited: !movie.is_favorited }
+          : movie
+      )
+    );
   };
 
   const openAddMoviesModal = async () => {
@@ -315,7 +237,7 @@ export default function PlaylistDetailPage() {
       }
 
       // Filtrar películas que no están en la playlist
-      const currentMovieIds = playlist?.movies || [];
+      const currentMovieIds = movies.map(movie => movie.id) || [];
       const available = (data || []).filter(m => !currentMovieIds.includes(m.id));
       
       console.log(`✅ Available movies: ${available.length}`);
@@ -343,23 +265,18 @@ export default function PlaylistDetailPage() {
       setLoadingMovies(true);
       console.log('➕ Adding movies to playlist:', selectedMovieIds);
 
-      const updatedMovies = [...(playlist?.movies || []), ...selectedMovieIds];
-
-      const { error: updateError } = await supabase
-        .from('playlists')
-        .update({ movies: updatedMovies })
-        .eq('id', playlistId)
-        .eq('user_id', user?.id);
-
-      if (updateError) {
-        console.error('❌ Error updating playlist:', updateError);
-        throw updateError;
+      // Usar la nueva función addMovieToPlaylist para cada película seleccionada
+      for (const movieId of selectedMovieIds) {
+        const result = await addMovieToPlaylist(playlistId, movieId);
+        if (!result.success) {
+          throw new Error(result.error || 'Error al añadir película');
+        }
       }
 
       console.log('✅ Movies added successfully');
       
       // Recargar la playlist
-      await fetchPlaylistData(user);
+      await fetchPlaylistData();
       
       // Cerrar modal y limpiar selección
       setShowAddMoviesModal(false);
@@ -416,7 +333,7 @@ export default function PlaylistDetailPage() {
                 <PlaylistIcon size={32} color="rgb(198, 40, 40)" />
               </div>
               <div className="flex-1">
-                <h1 className="text-3xl font-bold mb-2" style={{color: 'rgb(198, 40, 40)'}}>{playlist.name}</h1>
+                <h1 className="text-3xl font-bold mb-2" style={{color: 'rgb(198, 40, 40)'}}>{playlist.title}</h1>
                 <div className="flex items-center gap-4 text-sm text-gray-600">
                   <div className="flex items-center">
                     <MovieIcon size={16} className="mr-1" />
@@ -467,6 +384,7 @@ export default function PlaylistDetailPage() {
                     onClick={() => setShowDeleteModal(true)}
                     className="px-4 py-2 rounded bg-red-600 text-white transition-colors hover:bg-red-700 flex items-center gap-2"
                     title="Eliminar playlist"
+                    style={{backgroundColor: 'rgb(198, 40, 40)'}}
                   >
                     <TrashIcon size={20} color="white" />
                     Eliminar
@@ -513,11 +431,11 @@ export default function PlaylistDetailPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {movies.map((movie) => (
-              <MovieCard 
-                key={movie.id} 
-                movie={movie} 
+              <MovieCard
+                key={movie.id}
+                movie={movie}
                 onToggleFavorite={handleToggleFavorite}
-                isAuthenticated={isAuthenticated}
+                isAuthenticated={!!user}
               />
             ))}
           </div>
@@ -655,7 +573,7 @@ export default function PlaylistDetailPage() {
             </div>
 
             <p className="text-gray-600 mb-6">
-              ¿Estás seguro de que deseas eliminar la playlist <strong>{playlist?.name}</strong>? Esta acción no se puede deshacer.
+              ¿Estás seguro de que deseas eliminar la playlist <strong>{playlist?.title}</strong>? Esta acción no se puede deshacer.
             </p>
 
             <div className="flex gap-3">

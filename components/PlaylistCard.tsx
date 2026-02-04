@@ -8,7 +8,8 @@ interface PlaylistCardProps {
 }
 
 export default function PlaylistCard({ playlist, currentUserId }: PlaylistCardProps) {
-  const movieCount = playlist.movies?.length || 0;
+  // TODO: Obtener movieCount desde playlist_movies table
+  const movieCount = 0; // playlist.movies?.length || 0; // Columna movies ya no existe
   const isOwner = currentUserId === playlist.user_id;
   
   return (
@@ -34,10 +35,10 @@ export default function PlaylistCard({ playlist, currentUserId }: PlaylistCardPr
                 <PlaylistIcon size={24} color="rgb(198, 40, 40)" />
               </div>
               <div>
-                <h3 className="font-bold text-lg" style={{color: 'rgb(198, 40, 40)'}}>{playlist.name}</h3>
+                <h3 className="font-bold text-lg" style={{color: 'rgb(198, 40, 40)'}}>{playlist.title}</h3>
                 <div className="flex items-center text-sm text-gray-500">
                   <MovieIcon size={16} className="mr-1" />
-                  <span>{movieCount} película{movieCount !== 1 ? 's' : ''}</span>
+                  <span>{movieCount} película{movieCount !== 0 ? 's' : ''}</span>
                 </div>
               </div>
             </div>

@@ -69,8 +69,8 @@ export default function RegisterPage() {
       }
 
       if (data.session) {
+        console.log('✅ Registration successful with session');
         router.push("/movies");
-        router.refresh();
         return;
       }
 

@@ -2,9 +2,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { user, session, loading: authLoading } = useAuth();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,10 +17,10 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     // Verificar que hay una sesión de recuperación válida
     const checkSession = async () => {
+      if (authLoading) return; // Wait for auth to initialize
+      
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error || !session) {
+        if (!session || !user) {
           console.error('No valid recovery session');
           setError('Enlace de recuperación inválido o expirado');
           setValidating(false);
@@ -35,7 +37,7 @@ export default function ResetPasswordPage() {
     };
 
     checkSession();
-  }, []);
+  }, [session, user, authLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

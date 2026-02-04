@@ -57,11 +57,10 @@ export default function AddPlaylistForm() {
 
       // Preparar los datos para la base de datos
       const playlistData: any = {
-        name: formData.name.trim(),
+        title: formData.name.trim(),
         description: formData.description.trim() || null,
         user_id: user.id,
-        is_public: formData.isPublic,
-        movies: []
+        is_public: formData.isPublic
       };
 
       console.log('📝 Playlist data:', playlistData);

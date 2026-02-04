@@ -32,7 +32,9 @@ export default function LoginPage() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      setTimeout(() => { router.push("/"); router.refresh(); }, 100);
+      // El AuthContext se encargará de actualizar el estado y redirigir si es necesario
+      console.log('✅ Login successful');
+      router.push("/");
     } catch (error: any) {
       console.error('❌ Login error:', error);
       setError(error.message);

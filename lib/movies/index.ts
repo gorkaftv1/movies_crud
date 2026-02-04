@@ -58,7 +58,8 @@ export const updateMovie = async (id: string, updates: Partial<Movie>) => {
 
 /**
  * Elimina una película de la base de datos y todas sus referencias.
- * Incluye: favoritos, playlists que la contengan, y imagen del storage.
+ * Con la nueva estructura normalizada, favoritos y playlists se eliminan automáticamente
+ * por las foreign keys con CASCADE DELETE.
  */
 export const deleteMovie = async (id: string, userId: string) => {
   try {
@@ -81,28 +82,7 @@ export const deleteMovie = async (id: string, userId: string) => {
 
     console.log('🗑️ Deleting movie and all references:', id);
 
-    // 3. Eliminar de favoritos (automático con ON DELETE CASCADE en DB)
-    // Esto se maneja automáticamente por las foreign keys
-
-    // 4. Eliminar de playlists que la contengan
-    // Obtener playlists que contienen esta película
-    const { data: playlistsWithMovie, error: playlistError } = await supabase
-      .from('playlists')
-      .select('id, movies')
-      .contains('movies', [id]);
-
-    if (!playlistError && playlistsWithMovie) {
-      for (const playlist of playlistsWithMovie) {
-        const updatedMovies = (playlist.movies || []).filter((movieId: string) => movieId !== id);
-        await supabase
-          .from('playlists')
-          .update({ movies: updatedMovies })
-          .eq('id', playlist.id);
-      }
-      console.log(`🗑️ Removed movie from ${playlistsWithMovie.length} playlists`);
-    }
-
-    // 5. Eliminar imagen del storage si existe
+    // 3. Eliminar imagen del storage si existe
     if (movie.portrait_url) {
       // Extraer path de la URL
       const urlParts = movie.portrait_url.split('/');
@@ -120,7 +100,7 @@ export const deleteMovie = async (id: string, userId: string) => {
       }
     }
 
-    // 6. Finalmente eliminar la película
+    // 4. Eliminar la película (esto automáticamente eliminará favoritos y playlist_movies por CASCADE)
     const { error: deleteError } = await supabase
       .from('movies')
       .delete()
@@ -132,7 +112,7 @@ export const deleteMovie = async (id: string, userId: string) => {
       throw deleteError;
     }
 
-    console.log('✅ Movie and all references deleted successfully');
+    console.log('✅ Movie and all references deleted successfully (favorites and playlist entries deleted automatically via CASCADE)');
     return { success: true };
 
   } catch (error: any) {

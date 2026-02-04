@@ -57,7 +57,7 @@ export default function EditPlaylistForm({ playlistId }: EditPlaylistFormProps) 
 
       // Cargar datos en el formulario
       setFormData({
-        name: playlist.name,
+        name: playlist.title,
         description: playlist.description || "",
         isPublic: playlist.is_public,
       });
@@ -100,7 +100,7 @@ export default function EditPlaylistForm({ playlistId }: EditPlaylistFormProps) 
 
       // Preparar los datos para actualizar
       const updateData = {
-        name: formData.name.trim(),
+        title: formData.name.trim(),
         description: formData.description.trim() || null,
         is_public: formData.isPublic,
       };

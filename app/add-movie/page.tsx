@@ -3,24 +3,25 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddMovieForm from "@/components/AddMovieForm";
-import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 export default function AddMoviePage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [emailVerified, setEmailVerified] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      if (authLoading) return; // Wait for auth to initialize
       
-      if (!session) {
+      if (!user) {
         router.push('/login');
         return;
       }
 
       // Verificar si el email está confirmado
-      if (!session.user.email_confirmed_at) {
+      if (!user.email_confirmed_at) {
         setEmailVerified(false);
         setLoading(false);
         return;
@@ -31,7 +32,7 @@ export default function AddMoviePage() {
     };
 
     checkAuth();
-  }, [router]);
+  }, [router, user, authLoading]);
 
   if (loading) {
     return (
