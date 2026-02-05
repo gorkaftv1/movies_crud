@@ -47,7 +47,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ id
       initialIsFav={isFav}
       initialPlaylists={playlists}
       initialPlaylistsWithMovie={playlistsWithMovie}
-      isOwner={true}
+      isOwner={user?.id === movieData.user_id}
       currentUserId={user?.id}
     />
   );
