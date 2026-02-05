@@ -1,14 +1,16 @@
 # Movies CRUD
 
-Una aplicación web completa para gestionar películas, playlists y favoritos con autenticación avanzada y arquitectura normalizada.
+Una aplicación web completa para gestionar películas, playlists y favoritos con autenticación avanzada, arquitectura normalizada y patrón híbrido Server/Client Components.
 
 ## 🚀 Tecnologías
 
-- **Next.js 16** - Framework React con App Router y Turbopack
-- **Supabase** - Base de datos PostgreSQL, autenticación y storage
-- **TypeScript** - Tipado estático completo
+- **Next.js 15** - Framework React con App Router, Server Components y Server Actions
+- **Supabase** - Base de datos PostgreSQL, autenticación con Row Level Security
+  - `@supabase/ssr` - Manejo de sesiones con cookies seguras
+  - `@supabase/supabase-js` - Cliente y tipos de TypeScript
+- **TypeScript** - Tipado estático completo con tipos unificados
 - **Tailwind CSS** - Estilos modernos y responsive
-- **Row Level Security** - Políticas de seguridad a nivel de base de datos
+- **React 19** - Server/Client Components pattern
 
 ## ✨ Funcionalidades
 
@@ -33,7 +35,6 @@ Una aplicación web completa para gestionar películas, playlists y favoritos co
 - Creación de playlists públicas y privadas
 - Gestión de películas en playlists (añadir/eliminar)
 - Vista detallada con información del creador
-- Estructura normalizada con eliminación automática
 
 ### 🎨 Interfaz de Usuario
 - Diseño responsive para móviles y escritorio
@@ -43,43 +44,116 @@ Una aplicación web completa para gestionar películas, playlists y favoritos co
 
 ## 🏗️ Arquitectura
 
+### Patrón Híbrido Server/Client Components
+
+Esta aplicación implementa el **patrón recomendado de Next.js 15**:
+
+- **Server Components** (por defecto):
+  - Obtienen datos del servidor usando `createServerClient()` 
+  - Acceden a cookies mediante `next/headers`
+  - Manejan páginas que dependen de sesión (`/playlists`, `/favorites`, `/movies/[id]`)
+  - Mejoran el rendimiento (menos JavaScript enviado al cliente)
+  
+- **Client Components** (`"use client"`):
+  - Manejan interactividad (botones, formularios, estados locales)
+  - Usan el `AuthContext` para acceder a sesión/perfil globalmente
+  - Implementan mutaciones y actualizaciones optimistas
+  - Ejemplos: `MovieCard`, `PlaylistDetailClient`, `Navbar`
+
+### Gestión de Clientes Supabase
+
+- **`lib/supabase/server.ts`**: Factory `createServerSupabaseClient()` para Server Components
+- **`lib/supabase/client.ts`**: Singleton `supabase` para Client Components
+- **CRUD Libraries**: Funciones que aceptan `SupabaseClient` como parámetro (reutilizables en cualquier contexto)
+
 ### Estructura de Directorios
 ```
 ├── app/                     # Páginas (Next.js App Router)
-│   ├── movies/             # Gestión de películas
-│   ├── playlists/          # Sistema de playlists
-│   ├── favorites/          # Películas favoritas
-│   ├── add-movie/          # Formulario de creación
-│   ├── login/              # Autenticación
-│   └── profile/            # Perfil de usuario
-├── components/             # Componentes reutilizables
-│   ├── MovieCard.tsx       # Tarjeta de película
-│   ├── PlaylistCard.tsx    # Tarjeta de playlist
-│   ├── PlaylistForm.tsx    # Formulario unificado
-│   └── Navbar.tsx          # Navegación
-├── lib/                    # Lógica centralizada
-│   ├── auth/              # Contexto de autenticación
-│   ├── movies/            # Helpers de películas
-│   ├── playlists/         # Helpers de playlists
-│   ├── favorites/         # Helpers de favoritos
-│   ├── users/             # Helpers de usuarios
-│   ├── utils/             # Utilidades de storage
-│   ├── supabase/          # Cliente y configuración
-│   └── types/             # Definiciones de tipos
-├── db/                     # Scripts SQL
-│   ├── 01_schema.sql       # Esquema de base de datos
-│   ├── 02_policies.sql     # Políticas RLS
-│   ├── 03_seed.sql         # Datos de prueba
-│   └── 04_playlist_movies_migration.sql # Migración a estructura normalizada
-└── proxy.ts                # Protección de rutas (Next.js 16)
+│   ├── globals.css          # Estilos globales
+│   ├── layout.tsx           # Layout raíz con AuthProvider
+│   ├── page.tsx             # Página de inicio
+│   ├── add-movie/           # Crear nueva película (Client)
+│   │   └── page.tsx
+│   ├── create-playlist/     # Crear nueva playlist (Client)
+│   │   └── page.tsx
+│   ├── favorites/           # Películas favoritas (Server Component)
+│   │   └── page.tsx
+│   ├── login/               # Autenticación (Client)
+│   │   └── page.tsx
+│   ├── movies/              # Gestión de películas
+│   │   ├── page.tsx         # Lista de películas
+│   │   └── [id]/            # Detalle de película (Server Component)
+│   │       ├── page.tsx
+│   │       └── edit/        # Editar película (Client)
+│   │           └── page.tsx
+│   ├── playlists/           # Sistema de playlists
+│   │   ├── page.tsx         # Lista de playlists (Server Component)
+│   │   └── [id]/            # Detalle de playlist (Server Component)
+│   │       ├── page.tsx
+│   │       └── edit/        # Editar playlist (Client)
+│   │           └── page.tsx
+│   ├── profile/             # Perfil de usuario (Client)
+│   │   └── page.tsx
+│   ├── register/            # Registro de usuarios (Client)
+│   │   └── page.tsx
+│   └── reset-password/      # Recuperación de contraseña (Client)
+│       └── page.tsx
+├── components/
+│   ├── favorites/           # Componentes de favoritos
+│   │   └── FavoritesClient.tsx  # Wrapper client para página de favoritos
+│   ├── global/              # Componentes globales compartidos
+│   │   ├── Icons.tsx        # Iconos SVG
+│   │   └── Navbar.tsx       # Barra de navegación
+│   ├── movies/              # Componentes de películas
+│   │   ├── AddMovieForm.tsx # Formulario de creación de película
+│   │   ├── EditMovieForm.tsx# Formulario de edición de película
+│   │   ├── MovieCard.tsx    # Tarjeta de película
+│   │   ├── MoviesDetailClient.tsx # Wrapper client para detalle de película
+│   │   ├── MovieSearchBar.tsx # Barra de búsqueda de películas
+│   │   └── MoviesList.tsx   # Lista de películas con grid
+│   └── playlists/           # Componentes de playlists
+│       ├── CreatePlaylistClient.tsx # Wrapper client para crear playlist
+│       ├── EditPlaylistForm.tsx # Formulario de edición de playlist
+│       ├── PlaylistCard.tsx # Muestra contador de películas
+│       ├── PlaylistDetailClient.tsx # Wrapper client para detalle de playlist
+│       └── PlaylistForm.tsx # Formulario de playlists
+├── db/                      # Scripts SQL (ejecutar en orden)
+│   ├── 01_schema.sql        # Esquema completo (con playlist_movies)
+│   ├── 02_policies.sql      # Políticas RLS completas
+│   └── 03_seed.sql          # Datos de prueba (opcional)
+├── email-templates/         # Templates HTML para emails
+│   ├── confirm-email.html   # Confirmación de email
+│   └── reset-password.html  # Recuperación de contraseña
+├── lib/                     # Lógica centralizada
+│   ├── auth/              
+│   │   └── AuthContext.tsx  # Contexto global con manejo robusto de cookies
+│   ├── favorites/         
+│   │   └── index.ts         # CRUD
+│   ├── movies/            
+│   │   └── index.ts         # CRUD
+│   ├── playlists/         
+│   │   └── index.ts         
+│   ├── supabase/          
+│   │   ├── client.ts        # Singleton browser client
+│   │   └── server.ts        # Factory para server client
+│   ├── types/             
+│   │   └── index.ts         # Movie, Playlist, User
+│   ├── users/             
+│   │   └── index.ts         # Helpers de usuarios
+│   └── utils/             
+│       └── index.ts         # Utilidades de storage
+├── public/                  # Archivos estáticos
+└── proxy.ts                 # Middleware de protección de rutas
 ```
 
 ### Principios de Arquitectura
+- **Server Components First** - Renderizado del servidor para mejor rendimiento
+- **CRUD Environment-Agnostic** - Librerías que aceptan `SupabaseClient` como parámetro
 - **Separación por dominios** en `lib/` (SRP - Single Responsibility Principle)
-- **Componentes reutilizables** con props tipadas
-- **Hooks personalizados** para lógica compartida
-- **Error boundaries** y manejo de estados
-- **Optimistic updates** en favoritos
+- **Componentes reutilizables** con props opcionales para diferentes contextos
+- **Sistema de tipos unificado** - `Movie` con `is_favorited: boolean` siempre presente
+- **Manejo robusto de sesiones** - AuthContext con recuperación automática ante problemas de sincronización
+- **Optimistic updates** en favoritos y eliminaciones
 
 ## 🗄️ Base de Datos
 
@@ -92,9 +166,10 @@ Una aplicación web completa para gestionar películas, playlists y favoritos co
 
 ### Características
 - **Foreign Keys con CASCADE DELETE** - Eliminación automática de referencias
-- **Row Level Security (RLS)** - Seguridad a nivel de fila
-- **Índices optimizados** - Consultas eficientes
-- **Storage buckets** - Gestión de archivos multimedia
+- **Row Level Security (RLS)** - Seguridad a nivel de fila con políticas granulares
+- **Índices optimizados** - Consultas eficientes con joins
+- **Agregaciones** - Conteo de películas en playlists mediante `playlist_movies(count)`
+- **Storage buckets** - Gestión de archivos multimedia (portraits, avatars)
 
 ## 🚀 Configuración
 
@@ -113,18 +188,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ### 3. Configurar base de datos
 Ejecutar en orden en Supabase SQL Editor:
 ```sql
--- 1. Esquema base
+-- 1. Esquema completo (incluye playlist_movies)
 \i db/01_schema.sql
 
--- 2. Políticas de seguridad
+-- 2. Políticas de seguridad (incluye RLS para playlist_movies)
 \i db/02_policies.sql
 
--- 3. Datos de prueba (opcional)
+-- 3. Datos de prueba (opcional) - Reemplaza 'YOUR_USER_ID' con tu UUID
 \i db/03_seed.sql
-
--- 4. Migración a estructura normalizada
-\i db/04_playlist_movies_migration.sql
 ```
+
+**Nota**: El esquema ya incluye la estructura normalizada con la tabla `playlist_movies`. No es necesario ejecutar migraciones.
 
 ### 4. Configurar Storage
 En Supabase Dashboard:
@@ -147,58 +221,17 @@ npm run dev
 
 ### Para Usuarios Autenticados
 - **Películas**: Crear, editar, eliminar películas propias
-- **Favoritos**: Gestión completa de favoritos
-- **Playlists**: Crear playlists públicas/privadas, añadir/eliminar películas
+- **Favoritos**: Gestión completa de favoritos con actualizaciones optimistas
+- **Playlists**: 
+  - Crear playlists públicas/privadas
+  - Añadir películas desde la vista de detalle
+  - Eliminar películas con botón "Quitar de esta playlist" en tarjetas
+  - Ver contador de películas en cada playlist
 - **Perfil**: Gestión de avatar y información personal
-
-## 🔧 Funcionalidades Técnicas
-
-### Autenticación Avanzada
-- Contexto React optimizado con manejo de eventos
-- Sesiones persistentes entre recargas
-- Creación automática de perfiles
-- Protección de rutas client y server-side
-
-### Gestión de Estados
-- Estados locales optimizados
-- Actualizaciones optimistas
-- Manejo de errores centralizado
-- Loading states consistentes
-
-### Optimizaciones
-- Componentes memoizados
-- Lazy loading de imágenes
-- Debounced search
-- Efficient re-renders prevention
 
 ## 📋 Scripts Disponibles
 
 ```bash
 npm run dev          # Servidor de desarrollo
 npm run build        # Compilar para producción
-npm run start        # Servidor de producción
-npm run lint         # Linter
-npm run type-check   # Verificación de tipos
 ```
-
-## 🚨 Migraciones
-
-### Script de Migración de Playlists
-El archivo `db/04_playlist_movies_migration.sql` migra la estructura de playlists de arrays JSON a una tabla normalizada:
-
-- ✅ **De**: `playlists.movies` (array JSON)
-- ✅ **A**: Tabla `playlist_movies` (relación many-to-many)
-- ✅ **Beneficios**: Consultas eficientes, eliminación automática, escalabilidad
-
-## 🎯 Próximas Mejoras
-
-- [ ] Sistema de comentarios en películas
-- [ ] Recomendaciones personalizadas
-- [ ] Compartir playlists por URL
-- [ ] Sistema de puntuaciones
-- [ ] Filtros avanzados por género/director
-- [ ] Modo offline con Service Workers
-
----
-
-**Desarrollado con ❤️ usando Next.js 16 y Supabase**

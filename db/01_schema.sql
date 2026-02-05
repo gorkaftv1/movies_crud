@@ -41,16 +41,24 @@ CREATE TABLE IF NOT EXISTS public.user_favorites (
   UNIQUE(user_id, movie_id) -- Un usuario solo puede tener una película una vez en favoritos
 );
 
--- 4. Playlists (listas de reproducción)
+-- 4. Playlists (listas de reproducción) - Estructura normalizada
 CREATE TABLE IF NOT EXISTS public.playlists (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
   is_public BOOLEAN DEFAULT FALSE,
-  movies UUID[], -- Array de IDs de películas
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 5. Playlist Movies (relación many-to-many entre playlists y películas)
+CREATE TABLE IF NOT EXISTS public.playlist_movies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  playlist_id UUID NOT NULL REFERENCES public.playlists(id) ON DELETE CASCADE,
+  movie_id UUID NOT NULL REFERENCES public.movies(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(playlist_id, movie_id) -- Evitar duplicados
 );
 
 -- ÍNDICES
@@ -73,6 +81,12 @@ CREATE INDEX IF NOT EXISTS user_favorites_created_at_idx ON public.user_favorite
 -- Playlists
 CREATE INDEX IF NOT EXISTS playlists_user_id_idx ON public.playlists(user_id);
 CREATE INDEX IF NOT EXISTS playlists_is_public_idx ON public.playlists(is_public);
+CREATE INDEX IF NOT EXISTS playlists_created_at_idx ON public.playlists(created_at DESC);
+
+-- Playlist Movies
+CREATE INDEX IF NOT EXISTS playlist_movies_playlist_id_idx ON public.playlist_movies(playlist_id);
+CREATE INDEX IF NOT EXISTS playlist_movies_movie_id_idx ON public.playlist_movies(movie_id);
+CREATE INDEX IF NOT EXISTS playlist_movies_created_at_idx ON public.playlist_movies(created_at DESC);
 
 -- HABILITAR ROW LEVEL SECURITY
 -- =============================
@@ -81,6 +95,7 @@ ALTER TABLE public.movies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.playlists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.playlist_movies ENABLE ROW LEVEL SECURITY;
 
 -- FUNCIONES Y TRIGGERS
 -- ====================

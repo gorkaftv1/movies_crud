@@ -108,6 +108,45 @@ CREATE POLICY "Users can manage their own playlists"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+-- PLAYLIST_MOVIES POLICIES
+-- =========================
+
+-- Eliminar políticas existentes
+DROP POLICY IF EXISTS "Users can view playlist_movies if they can view the playlist" ON public.playlist_movies;
+DROP POLICY IF EXISTS "Users can insert into their playlists" ON public.playlist_movies;
+DROP POLICY IF EXISTS "Users can delete from their playlists" ON public.playlist_movies;
+
+-- Los usuarios pueden ver playlist_movies si pueden ver la playlist (pública o propia)
+CREATE POLICY "Users can view playlist_movies if they can view the playlist"
+  ON public.playlist_movies FOR SELECT
+  USING (
+    playlist_id IN (
+      SELECT id FROM public.playlists 
+      WHERE is_public = true OR user_id = auth.uid()
+    )
+  );
+
+-- Los usuarios pueden añadir películas a sus propias playlists
+CREATE POLICY "Users can insert into their playlists"
+  ON public.playlist_movies FOR INSERT
+  WITH CHECK (
+    auth.role() = 'authenticated'
+    AND playlist_id IN (
+      SELECT id FROM public.playlists 
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- Los usuarios pueden eliminar películas de sus propias playlists
+CREATE POLICY "Users can delete from their playlists"
+  ON public.playlist_movies FOR DELETE
+  USING (
+    playlist_id IN (
+      SELECT id FROM public.playlists 
+      WHERE user_id = auth.uid()
+    )
+  );
+
 -- STORAGE POLICIES - PORTRAITS
 -- ============================
 
