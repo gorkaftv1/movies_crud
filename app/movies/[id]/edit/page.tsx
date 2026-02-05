@@ -1,4 +1,4 @@
-import EditMovieForm from "@/components/EditMovieForm";
+import EditMovieForm from "../../../../components/movies/EditMovieForm";
 
 interface EditMoviePageProps {
   params: Promise<{

@@ -1,5 +1,5 @@
-// Movie + favorite metadata (normalizada)
-export interface MovieWithFavorite {
+// Tipo base de película (sin metadatos de favoritos)
+export interface MovieBase {
   id: string;
   title: string;
   year?: number;
@@ -7,30 +7,22 @@ export interface MovieWithFavorite {
   portrait_url?: string;
   score?: number;
   cast?: string[];
-  duration?: number;
-  short_desc?: string;
-  user_id?: string;
-  is_favorited: boolean;
-  profiles?: Profile;
-}
-// Tipos para películas
-export interface Movie {
-  id: string;
-  title: string;
-  year?: number;
-  portrait_url?: string;
-  score?: number;
-  cast?: string[];
-  director?: string;
   duration?: number;
   short_desc?: string;
   genres?: string[];
   user_id?: string;
   created_at?: string;
   updated_at?: string;
-  is_favorited?: boolean;
   profiles?: Profile;
 }
+
+// Movie con información de favorito (usado en UI donde hay usuario autenticado)
+export interface Movie extends MovieBase {
+  is_favorited: boolean;
+}
+
+// Alias para compatibilidad (deprecado, usar Movie)
+export type MovieWithFavorite = Movie;
 
 // Tipos para perfiles de usuario
 export interface Profile {
@@ -49,6 +41,7 @@ export interface Playlist {
   description?: string;
   is_public: boolean;
   movies?: string[]; // Mantener temporalmente para compatibilidad
+  movieCount?: number; // Conteo de películas desde playlist_movies
   created_at: string;
   updated_at: string;
   profiles?: Profile;

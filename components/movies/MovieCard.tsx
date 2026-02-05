@@ -1,7 +1,8 @@
+// components/movies/MovieCard.tsx
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { MovieWithFavorite } from "@/lib/types";
+import type { MovieWithFavorite } from "../../lib/types";
 import {
   HeartIcon,
   HeartFilledIcon,
@@ -9,16 +10,26 @@ import {
   ImageIcon,
   SpinnerIcon,
   EditIcon,
-} from "@/components/Icons";
+  TrashIcon,
+} from "../../components/global/Icons";
 
 interface MovieCardProps {
   movie: MovieWithFavorite;
   onToggleFavorite: (movieId: string) => Promise<void>;
   isAuthenticated: boolean;
   currentUserId: string | null;
+  onRemoveFromPlaylist?: (movieId: string) => Promise<void>;
+  isRemovingFromPlaylist?: boolean;
 }
 
-export default function MovieCard({ movie, onToggleFavorite, isAuthenticated, currentUserId }: MovieCardProps) {
+export default function MovieCard({ 
+  movie, 
+  onToggleFavorite, 
+  isAuthenticated, 
+  currentUserId,
+  onRemoveFromPlaylist,
+  isRemovingFromPlaylist = false
+}: MovieCardProps) {
   const router = useRouter();
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
 
@@ -34,6 +45,15 @@ export default function MovieCard({ movie, onToggleFavorite, isAuthenticated, cu
     setIsTogglingFavorite(true);
     await onToggleFavorite(movie.id);
     setIsTogglingFavorite(false);
+  };
+
+  const handleRemoveFromPlaylist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (onRemoveFromPlaylist && !isRemovingFromPlaylist) {
+      await onRemoveFromPlaylist(movie.id);
+    }
   };
 
   const isOwner = currentUserId && movie.user_id === currentUserId;
@@ -106,6 +126,27 @@ export default function MovieCard({ movie, onToggleFavorite, isAuthenticated, cu
           <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-50">
             <span className="text-[10px] text-gray-400 italic">Por @{movie.profiles.username}</span>
           </div>
+        )}
+
+        {/* Botón para quitar de playlist (solo visible cuando se pasa la prop) */}
+        {onRemoveFromPlaylist && (
+          <button
+            onClick={handleRemoveFromPlaylist}
+            disabled={isRemovingFromPlaylist}
+            className="w-full mt-3 py-2 px-3 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRemovingFromPlaylist ? (
+              <>
+                <SpinnerIcon size={14} className="animate-spin" />
+                <span>Quitando...</span>
+              </>
+            ) : (
+              <>
+                <TrashIcon size={14} />
+                <span>Quitar de esta playlist</span>
+              </>
+            )}
+          </button>
         )}
       </div>
     </div>

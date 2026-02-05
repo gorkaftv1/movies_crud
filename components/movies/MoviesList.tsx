@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { getAllMoviesWithOptionalFavorites, toggleFavorite } from "@/lib/favorites";
+import { useAuth } from "../../lib/auth/AuthContext";
+import { getAllMoviesWithOptionalFavorites, toggleFavorite } from "../../lib/favorites";
 import { 
   PlusIcon, 
   MovieIcon,
   SpinnerIcon,
-} from "@/components/Icons";
-import MovieSearchBar from "@/components/MovieSearchBar";
-import type { Movie, SearchFilters, MovieWithFavorite } from "@/lib/types";
-import MovieCard from "@/components/MovieCard";
+} from "../../components/global/Icons";
+import MovieSearchBar from "../../components/movies/MovieSearchBar";
+import type { Movie, SearchFilters, MovieWithFavorite } from "../../lib/types";
+import MovieCard from "../../components/movies/MovieCard";
 
 // MovieCard has been moved to components/MovieCard.tsx for reuse
 
@@ -31,9 +31,7 @@ export default function MoviesList() {
 
   // 1. Cargar datos cuando la sesión esté lista
   useEffect(() => {
-    if (!authLoading && supabase) {
       fetchMovies();
-    }
   }, [authLoading, user?.id, supabase]); // Refrescar si el ID de usuario cambia (login/logout)
 
   const fetchMovies = async () => {
@@ -74,7 +72,6 @@ export default function MoviesList() {
       );
     }
 
-    // ... (puedes añadir aquí el resto de filtros: yearFrom, minScore, etc.)
 
     result.sort((a, b) => {
       const factor = currentFilters.sortOrder === 'asc' ? 1 : -1;

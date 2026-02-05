@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { supabase } from "@/lib/supabase/client";
-import { updatePassword, updateUserAvatar, deleteUserAccount } from "@/lib/users";
-import { UserIcon, SpinnerIcon } from "@/components/Icons";
+import { useAuth } from "../../lib/auth/AuthContext";
+import { supabase } from "../../lib/supabase/client";
+import { updatePassword, updateUserAvatar, deleteUserAccount } from "../../lib/users";
+import { UserIcon, SpinnerIcon } from "../../components/global/Icons";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -60,7 +60,7 @@ export default function ProfilePage() {
     }
 
     setPasswordLoading(true);
-    const result = await updatePassword(newPassword);
+    const result = await updatePassword(supabase,newPassword);
     setPasswordLoading(false);
 
     if (result.error) {
@@ -104,7 +104,7 @@ export default function ProfilePage() {
       }
     }
 
-    const result = await updateUserAvatar(user.id, avatarFile, currentAvatarPath);
+    const result = await updateUserAvatar(supabase, user.id, avatarFile, currentAvatarPath);
     setAvatarLoading(false);
 
     if (result.error) {
@@ -128,7 +128,7 @@ export default function ProfilePage() {
     setDeleteError("");
     setDeleteLoading(true);
 
-    const result = await deleteUserAccount(user.id);
+    const result = await deleteUserAccount(supabase, user.id);
 
     if (result.error) {
       setDeleteLoading(false);
@@ -313,7 +313,7 @@ export default function ProfilePage() {
                 <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
                   <li>Se eliminarán todas tus playlists</li>
                   <li>Se eliminarán todos tus favoritos</li>
-                  <li>Tus películas pasarán a ser del usuario @usuario_eliminado</li>
+                  <li>Tus películas pasarán a ser del usuario ../..usuario_eliminado</li>
                   <li>No podrás recuperar tu cuenta</li>
                 </ul>
               </div>

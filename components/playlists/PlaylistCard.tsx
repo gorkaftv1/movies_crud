@@ -1,15 +1,17 @@
+// components/playlists/PlaylistCard.tsx
+"use client";
+
 import Link from "next/link";
-import { PlaylistIcon, MovieIcon, LockIcon, UnlockIcon, EditIcon } from "@/components/Icons";
-import type { Playlist } from "@/lib/types";
+import { PlaylistIcon, MovieIcon, LockIcon, UnlockIcon, EditIcon } from "../global/Icons";
+import type { Playlist } from "../../lib/types";
 
 interface PlaylistCardProps {
   playlist: Playlist;
   currentUserId?: string;
+  movieCount?: number;
 }
 
-export default function PlaylistCard({ playlist, currentUserId }: PlaylistCardProps) {
-  // TODO: Obtener movieCount desde playlist_movies table
-  const movieCount = 0; // playlist.movies?.length || 0; // Columna movies ya no existe
+export default function PlaylistCard({ playlist, currentUserId, movieCount = 0 }: PlaylistCardProps) {
   const isOwner = currentUserId === playlist.user_id;
   
   return (

@@ -1,9 +1,10 @@
+// lib/auth/AuthContext.tsx
 'use client';
 
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { User, Session, SupabaseClient } from '@supabase/supabase-js';
-import type { Profile } from '@/lib/types';
+import type { Profile } from '../../lib/types';
 
 interface AuthContextType {
   user: User | null;
@@ -58,14 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = async (userId: string) => {
     try {
       console.log('🔍 Loading profile for user:', userId);
-      console.log('  - User ID type:', typeof userId);
-      console.log('  - User ID length:', userId?.length);
-      // Use maybeSingle to avoid treating "no rows" as an exception and
-      // make the not-found -> insert flow more deterministic.
-      // Try fetching the profile with retries and exponential backoff.
+      
       const maxAttempts = 3;
-      const baseTimeoutMs = 3000; // per-attempt timeout
-      const backoffBase = 500; // ms
+      const backoffBase = 500;
 
       const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -74,34 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          console.log(`⏱️ Attempt ${attempt}/${maxAttempts}: starting profile query (timeout ${baseTimeoutMs}ms)`);
-          const query = supabase
+          console.log(`⏱️ Attempt ${attempt}/${maxAttempts}: fetching profile`);
+          
+          const { data, error } = await supabase
             .from('profiles')
             .select('username, avatar_url')
             .eq('id', userId)
             .maybeSingle();
-
-          const wrapped = Promise.race<any>([
-            query.then(res => ({ res, timedOut: false })),
-            new Promise(resolve => setTimeout(() => resolve({ timedOut: true }), baseTimeoutMs))
-          ]);
-
-          const result = await wrapped;
-
-          if (result?.timedOut) {
-            console.warn(`⏳ Attempt ${attempt} timed out after ${baseTimeoutMs}ms for user ${userId}`);
-            finalError = new Error('timeout');
-            if (attempt < maxAttempts) {
-              const backoff = backoffBase * Math.pow(2, attempt - 1);
-              console.log(`↻ Retrying after ${backoff}ms`);
-              await sleep(backoff);
-              continue;
-            }
-            // exhausted attempts
-            break;
-          }
-
-          const { data, error } = result.res;
 
           if (userRef.current?.id !== userId) {
             console.log('⏭️ Aborting profile set: user changed during fetch');
@@ -113,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             finalError = error;
             if (attempt < maxAttempts) {
               const backoff = backoffBase * Math.pow(2, attempt - 1);
-              console.log(`↻ Retrying after error, sleeping ${backoff}ms`);
+              console.log(`↻ Retrying after ${backoff}ms`);
               await sleep(backoff);
               continue;
             }
@@ -121,8 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (!data) {
-            // No existe perfil, crear uno básico
-            console.log('📝 No profile found — creating basic profile for user');
+            console.log('📝 No profile found — creating basic profile');
             const { data: newProfile, error: createError } = await supabase
               .from('profiles')
               .insert([{ id: userId }])
@@ -130,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .single();
 
             if (userRef.current?.id !== userId) {
-              console.log('⏭️ Aborting profile creation: user changed during operation');
+              console.log('⏭️ Aborting profile creation: user changed');
               return;
             }
 
@@ -139,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               finalError = createError;
               if (attempt < maxAttempts) {
                 const backoff = backoffBase * Math.pow(2, attempt - 1);
-                console.log(`↻ Retrying after create error, sleeping ${backoff}ms`);
+                console.log(`↻ Retrying after ${backoff}ms`);
                 await sleep(backoff);
                 continue;
               }
@@ -153,11 +127,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             break;
           }
         } catch (err) {
-          console.error('💥 Unexpected error during profile fetch attempt:', err);
+          console.error('💥 Unexpected error during profile fetch:', err);
           finalError = err;
           if (attempt < maxAttempts) {
             const backoff = backoffBase * Math.pow(2, attempt - 1);
-            console.log(`↻ Retrying after unexpected error, sleeping ${backoff}ms`);
+            console.log(`↻ Retrying after ${backoff}ms`);
             await sleep(backoff);
             continue;
           }
@@ -167,16 +141,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (finalData) {
         console.log('👤 Profile loaded successfully:', finalData);
-        console.log('  - Username:', finalData?.username || '[NULL]');
-        console.log('  - Avatar URL:', finalData?.avatar_url || '[NULL]');
         setProfile(finalData);
         profileRef.current = finalData;
         return;
       }
 
-      // If we exhausted attempts and didn't get data, prefer to keep any existing profile
       if (profileRef.current) {
-        console.warn('⚠️ Profile fetch failed after retries — keeping existing profile in state');
+        console.warn('⚠️ Profile fetch failed — keeping existing profile');
         return;
       }
 
@@ -185,10 +156,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileRef.current = null;
     } catch (error) {
       console.error('💥 Unexpected error loading profile:', error);
-      console.error('  - Error type:', typeof error);
-      console.error('  - Error details:', JSON.stringify(error, null, 2));
       setProfile(null);
     }
+  };
+
+  // Función para refrescar sesión cuando las cookies no están sincronizadas
+  const refreshSessionWithRetry = async (maxRetries = 3, delayMs = 500): Promise<Session | null> => {
+    console.log('🔄 Attempting to refresh session with retry...');
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`  Attempt ${attempt}/${maxRetries}`);
+        
+        const { data, error } = await supabase.auth.refreshSession();
+        
+        if (error) {
+          console.warn(`  ⚠️ Refresh attempt ${attempt} failed:`, error.message);
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+            continue;
+          }
+          return null;
+        }
+
+        if (data.session?.user) {
+          console.log('  ✅ Session refreshed successfully:', data.session.user.id);
+          return data.session;
+        }
+
+        console.warn(`  ⚠️ Refresh returned no session, retrying...`);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+        }
+      } catch (err) {
+        console.error(`  💥 Unexpected error on attempt ${attempt}:`, err);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+        }
+      }
+    }
+    
+    console.error('❌ Failed to refresh session after all retries');
+    return null;
   };
 
   // Función simplificada para establecer sesión
@@ -197,8 +206,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newUser);
     setSession(newSession);
 
-    // Ensure UI knows we're loading profile data to avoid race conditions
-    // where components render before profile is available.
     if (newUser) {
       setLoading(true);
       try {
@@ -209,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } else {
       setProfile(null);
+      setLoading(false);
       console.log('✅ Auth state cleared');
     }
   };
@@ -234,9 +242,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(null);
             setSession(null);
             setProfile(null);
+            setLoading(false);
           }
           setInitialized(true);
-          setLoading(false);
         }
       } catch (error) {
         console.error('❌ Error initializing auth:', error);
@@ -250,13 +258,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    // Listen for explicit profile-updated events (dispatched after profile upsert)
+    // Listen for profile updates
     const onProfileUpdated = async (e: Event) => {
       try {
         const evt = e as CustomEvent;
         const userId = evt?.detail?.userId;
         if (mounted && userId && userRef.current?.id === userId) {
-          console.log('🔄 Profile updated event received, reloading profile');
+          console.log('🔄 Profile updated event received');
           await loadProfile(userId);
         }
       } catch (err) {
@@ -266,19 +274,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (typeof window !== 'undefined') {
       window.addEventListener('profile-updated', onProfileUpdated as EventListener);
-      // Comentado temporalmente para debugging
-      // document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('🔐 Auth event:', event, 'initialized:', initializedRef.current, 'currentUser:', userRef.current?.id, 'newUser:', newSession?.user?.id);
+        console.log('🔐 Auth event:', event, 'newUser:', newSession?.user?.id || 'null', 'initialized:', initializedRef.current);
         
         if (!mounted) return;
 
         if (event === 'INITIAL_SESSION') {
           // Skip - ya manejado en initializeAuth
+          console.log('⏭️ Skipping INITIAL_SESSION - handled by initializeAuth');
           return;
         }
 
@@ -287,49 +294,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setSession(null);
           setProfile(null);
-          return; // Procesar SIGNED_OUT siempre
+          setLoading(false);
+          return;
         }
 
         if (event === 'SIGNED_IN') {
-          console.log('✅ User signed in');
-          console.log('🔍 SIGNED_IN Event Details:');
-          console.log('  - Current User ID:', userRef.current?.id);
-          console.log('  - New Session User ID:', newSession?.user?.id);
+          if (!initializedRef.current) {
+            console.log('⏭️ Skipping SIGNED_IN during initialization');
+            return;
+          }
 
+          console.log('✅ SIGNED_IN event received (post-initialization)');
           
           if (newSession?.user) {
+            console.log('  ✓ Session has user:', newSession.user.id);
             if (newSession.user.id !== userRef.current?.id) {
-              console.log('👤 New user detected, updating state');
-              console.log('  - Previous User:', userRef.current?.id || 'none');
-              console.log('  - New User:', newSession.user.id);
+              console.log('  → New user detected, updating state');
               await setAuthState(newSession.user, newSession);
             } else {
-              console.log('🔄 Same user sign-in, updating session only');
-              console.log('  - User ID:', newSession.user.id);
-              console.log('  - User Email:', newSession.user.email);
-              console.log('  - Email Confirmed:', newSession.user.email_confirmed_at ? 'Yes' : 'No');
+              console.log('  → Same user, only updating session (skip profile reload)');
               setSession(newSession);
-              // También recargar el perfil en caso de que haya cambiado
-              await loadProfile(newSession.user.id);
+              setUser(newSession.user);
+              setLoading(false);
             }
           } else {
-            console.warn('⚠️ SIGNED_IN event without user data');
-            console.warn('  - Session object:', newSession);
+            console.warn('⚠️ SIGNED_IN event but newSession.user is null — attempting session refresh');
+            
+            const refreshedSession = await refreshSessionWithRetry();
+            
+            if (refreshedSession?.user) {
+              console.log('✅ Session recovered after refresh:', refreshedSession.user.id);
+              await setAuthState(refreshedSession.user, refreshedSession);
+            } else {
+              console.error('❌ Could not recover session after SIGNED_IN event');
+              setLoading(false);
+            }
           }
-          return; // Procesar SIGNED_IN siempre para actualizar la navbar
+          return;
         }
 
         // Solo procesar otros eventos si ya estamos inicializados
         if (!initializedRef.current) {
-          console.log('⏭️ Skipping auth event during initialization:', event);
+          console.log('⏭️ Skipping event during initialization:', event);
           return;
         }
         
         if (event === 'TOKEN_REFRESHED') {
           console.log('🔄 Token refreshed');
-          if (newSession?.user?.id === userRef.current?.id) {
+          if (newSession && newSession.user?.id === userRef.current?.id) {
             setSession(newSession);
-            setUser(newSession?.user ?? null);
+            setUser(newSession.user);
           }
         }
       }
@@ -343,10 +357,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('profile-updated', onProfileUpdated as EventListener);
-        // document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
-  }, []); // Dependencias vacías para ejecutar solo al montar
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, profile, session, loading, supabase }}>

@@ -1,7 +1,10 @@
 // Aquí irá la lógica relacionada con usuarios (users)
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UploadResult } from '../types';
-import { uploadUserAvatar as _uploadUserAvatar, deleteUserAvatar as _deleteUserAvatar } from '@/lib/utils';
+import { 
+	uploadUserAvatar as _uploadUserAvatar, 
+	deleteUserAvatar as _deleteUserAvatar 
+} from '../../lib/utils';
 
 // Wrapper functions for utils that now require client
 export const uploadUserAvatar = (supabase: SupabaseClient, file: File, userId: string) =>

@@ -2,9 +2,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { uploadUserAvatar } from "@/lib/users";
-import { UserIcon } from "@/components/Icons";
+import { useAuth } from "../../lib/auth/AuthContext";
+import { uploadUserAvatar } from "../../lib/users";
+import { UserIcon } from "../../components/global/Icons";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -114,7 +114,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input id="email" type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 input-ring-red transition-colors" />
+              <input id="email" type="email" placeholder="tu../..email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 input-ring-red transition-colors" />
             </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>

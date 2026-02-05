@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { supabase } from "@/lib/supabase/client";
-import { uploadMoviePortrait } from "@/lib/utils";
-import type { Movie } from "@/lib/types";
+import { useAuth } from "../../lib/auth/AuthContext";
+import { supabase } from "../../lib/supabase/client";
+import { uploadMoviePortrait } from "../../lib/utils";
+import type { Movie } from "../../lib/types";
 
 interface EditMovieFormProps {
   movieId: string;
@@ -43,13 +43,6 @@ export default function EditMovieForm({ movieId }: EditMovieFormProps) {
     genres: "",
     portrait_file: null,
   });
-
-  // Verificar autenticación
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, authLoading, router]);
 
   // Cargar datos de la película
   useEffect(() => {
@@ -137,7 +130,7 @@ export default function EditMovieForm({ movieId }: EditMovieFormProps) {
   };
 
   const uploadPortrait = async (file: File, movieId: string): Promise<string | null> => {
-    const result = await uploadMoviePortrait(file, movieId);
+    const result = await uploadMoviePortrait(supabase, file, movieId);
     
     if (result.error) {
       setError(result.error);

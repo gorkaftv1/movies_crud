@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { SearchFilters } from "@/lib/types";
+import type { SearchFilters } from "../../lib/types";
 
 interface MovieSearchBarProps {
   onSearch: (filters: SearchFilters) => void;

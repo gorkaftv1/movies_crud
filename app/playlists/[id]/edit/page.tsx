@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { getPlaylistById, updatePlaylist } from "@/lib/playlists";
-import type { AddPlaylistFormData } from "@/lib/types";
-import PlaylistForm from "@/components/PlaylistForm";
+import { useAuth } from "../../../../lib/auth/AuthContext";
+import { getPlaylistById, updatePlaylist } from "../../../../lib/playlists";
+import type { AddPlaylistFormData } from "../../../../lib/types";
+import PlaylistForm from "../../../../components/playlists/PlaylistForm";
 
 interface PageProps {
   params: Promise<{ id: string }>;

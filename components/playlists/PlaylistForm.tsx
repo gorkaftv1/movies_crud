@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import type { AddPlaylistFormData } from "@/lib/types";
+import type { AddPlaylistFormData } from "../../lib/types";
 
 interface PlaylistFormProps {
   formData: AddPlaylistFormData;

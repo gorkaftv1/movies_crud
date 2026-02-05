@@ -1,11 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth/AuthContext";
+import { useAuth } from "../../lib/auth/AuthContext";
 
 export default function Navbar() {
-  const router = useRouter();
   const { user, profile, loading, supabase } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
 

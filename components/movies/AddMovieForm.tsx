@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { createMovie } from "@/lib/movies";
-import { uploadMoviePortrait } from "@/lib/utils";
-import type { AddMovieFormData } from "@/lib/types";
+import { useAuth } from "../../lib/auth/AuthContext";
+import { createMovie } from "../../lib/movies";
+import { uploadMoviePortrait } from "../../lib/utils";
+import type { AddMovieFormData } from "../../lib/types";
 
 interface AddMovieFormDataExtended extends AddMovieFormData {
   portrait_file: File | null;
@@ -29,13 +29,6 @@ export default function AddMovieForm() {
     genres: "",
     portrait_file: null,
   });
-
-  // Verificar autenticación al montar el componente
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, authLoading, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

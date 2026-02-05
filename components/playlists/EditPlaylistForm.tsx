@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth/AuthContext";
-import { getPlaylistById, updatePlaylist } from "@/lib/playlists";
-import type { AddPlaylistFormData } from "@/lib/types";
-import PlaylistForm from "@/components/PlaylistForm";
+import { useAuth } from "../../lib/auth/AuthContext";
+import { getPlaylistById, updatePlaylist } from "../../lib/playlists";
+import type { AddPlaylistFormData } from "../../lib/types";
+import PlaylistForm from "../../components/playlists/PlaylistForm";
 
 interface EditPlaylistFormProps {
   playlistId: string;
@@ -26,14 +26,8 @@ export default function EditPlaylistForm({ playlistId }: EditPlaylistFormProps) 
 
   // Verificar autenticación y cargar datos de la playlist
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push('/login');
-      } else if (supabase) {
         loadPlaylist();
-      }
-    }
-  }, [user, authLoading, playlistId, supabase]);
+  }, [playlistId]);
 
   const loadPlaylist = async () => {
     try {

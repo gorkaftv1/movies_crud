@@ -113,6 +113,9 @@ export async function getPlaylistWithDetails(supabase: SupabaseClient, playlistI
         if (favoritesData) {
           movies = favoritesData;
         }
+      } else {
+        // Sin usuario autenticado, asegurar is_favorited: false
+        movies = movies.map(m => ({ ...m, is_favorited: false }));
       }
     }
 
@@ -165,10 +168,13 @@ export async function deletePlaylist(supabase: SupabaseClient, playlistId: strin
   return { success: true };
 }
 
-export async function getUserPlaylists(supabase: SupabaseClient, userId: string): Promise<Playlist[]> {
+export async function getUserPlaylists(supabase: SupabaseClient, userId: string): Promise<any[]> {
   const { data, error } = await supabase
     .from('playlists')
-    .select('*')
+    .select(`
+      *,
+      playlist_movies(count)
+    `)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
@@ -177,7 +183,13 @@ export async function getUserPlaylists(supabase: SupabaseClient, userId: string)
     return [];
   }
 
-  return data || [];
+  // Mapear para incluir movieCount
+  const playlistsWithCount = (data || []).map(playlist => ({
+    ...playlist,
+    movieCount: playlist.playlist_movies?.[0]?.count || 0
+  }));
+
+  return playlistsWithCount;
 }
 
 export async function addMovieToPlaylist(supabase: SupabaseClient, playlistId: string, movieId: string) {

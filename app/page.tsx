@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MovieIcon, PlaylistIcon, HeartIcon } from "@/components/Icons";
+import { MovieIcon, PlaylistIcon, HeartIcon } from "../components/global/Icons";
 
 export default function Home() {
   return (
